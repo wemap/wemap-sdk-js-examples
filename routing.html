@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WeMap SDK - Routing Example</title>
+    <!-- MapLibre GL JS -->
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <style>
+      /* Mobile-first responsive styles */
+      .main-container {
+        padding: 1rem;
+        font-family: system-ui, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      
+      .nav-links {
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        background: #e7f3ff;
+        border-radius: 4px;
+        border: 1px solid #b3d9ff;
+        font-size: 0.875rem;
+        line-height: 1.6;
+      }
+      
+      .nav-links a {
+        display: inline-block;
+        margin: 0.25rem 0.5rem 0.25rem 0;
+        color: #0066cc;
+        text-decoration: none;
+      }
+      
+      .nav-links a:hover {
+        text-decoration: underline;
+      }
+      
+      .section {
+        background: #f5f5f5;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1.5rem;
+      }
+      
+      .section-title {
+        margin-top: 0;
+        font-size: 1.25rem;
+      }
+      
+      .button-group {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+      }
+      
+      .btn {
+        padding: 0.75rem 1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        font-weight: 500;
+        min-height: 44px; /* Touch-friendly minimum size */
+        white-space: nowrap;
+      }
+      
+      .btn-primary {
+        background: #007bff;
+        color: white;
+      }
+      
+      .btn-success {
+        background: #28a745;
+        color: white;
+      }
+      
+      .btn-danger {
+        background: #dc3545;
+        color: white;
+      }
+      
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      
+      .form-group {
+        margin-top: 1rem;
+      }
+      
+      .form-group label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+        font-size: 0.875rem;
+      }
+      
+      .form-group input,
+      .form-group select {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        box-sizing: border-box;
+      }
+      
+      .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+      }
+      
+      .map-container {
+        width: 100%;
+        height: 400px;
+        margin-top: 1rem;
+        border-radius: 4px;
+        overflow: hidden;
+        background: #e5e5e5;
+      }
+      
+      .info-box {
+        padding: 0.75rem;
+        border-radius: 4px;
+        margin-top: 1rem;
+        font-size: 0.875rem;
+      }
+      
+      .info-box-success {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+      }
+      
+      .info-box-warning {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+      }
+      
+      .info-box-error {
+        background: #f8d7da;
+        border: 1px solid #dc3545;
+      }
+      
+      pre {
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+        overflow-x: auto;
+        background: #f5f5f5;
+        padding: 0.5rem;
+        border-radius: 4px;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      
+      /* Tablet and desktop styles */
+      @media (min-width: 768px) {
+        .main-container {
+          padding: 2rem;
+        }
+        
+        .section {
+          padding: 1.5rem;
+        }
+        
+        .section-title {
+          font-size: 1.5rem;
+        }
+        
+        .map-container {
+          height: 500px;
+        }
+        
+        .btn {
+          padding: 0.5rem 1rem;
+          font-size: 0.875rem;
+          min-height: auto;
+        }
+        
+        .form-row {
+          grid-template-columns: 1fr 1fr 1fr;
+        }
+      }
+      
+      /* Large desktop styles */
+      @media (min-width: 1024px) {
+        .button-group {
+          flex-wrap: nowrap;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/routing.ts"></script>
+  </body>
+</html>
+
