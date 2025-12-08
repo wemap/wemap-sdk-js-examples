@@ -242,22 +242,11 @@ function updateMapUserPosition(): void {
   if (!userMarker) {
     // Create container element for both dot and cone
     const containerEl = document.createElement('div');
-    containerEl.style.display = 'flex';
-    containerEl.style.flexDirection = 'column';
-    containerEl.style.alignItems = 'center';
-    containerEl.style.width = '14px';
-    containerEl.style.height = '14px';
+    containerEl.classList.add('location-container');
 
     // Create HTML element for the blue dot
     const dotEl = document.createElement('div');
-    dotEl.style.width = '12px';
-    dotEl.style.height = '12px';
-    dotEl.style.borderRadius = '50%';
-    dotEl.style.backgroundColor = '#007bff';
-    dotEl.style.border = '2px solid #ffffff';
-    dotEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
-    dotEl.style.zIndex = '2';
-    dotEl.style.position = 'absolute';
+    dotEl.classList.add('location-dot');
 
     // Create HTML element for the heading cone
     const coneEl = document.createElement('div');
@@ -274,6 +263,8 @@ function updateMapUserPosition(): void {
     const maplibregl = (window as any).maplibregl;
     userMarker = new maplibregl.Marker({ 
       element: containerEl,
+      pitchAlignment: 'map',
+      rotationAlignment: 'map',
       anchor: 'center' // Anchor at center of the combined element
     })
       .setLngLat([lon, lat])

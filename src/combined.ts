@@ -160,7 +160,7 @@ function initializeMap(): void {
   // Ensure map container is clickable
   if (mapContainer) {
     mapContainer.style.pointerEvents = 'auto';
-    mapContainer.style.cursor = 'crosshair';
+    // Cursor styling is handled by CSS class 'clickable'
   }
 }
 
@@ -260,30 +260,19 @@ function updateMapUserPosition(): void {
   const lon = vpsPose.position.longitude;
 
   // Get heading from attitude if available
-  let heading: number | null = null;
-  if (vpsPose.attitude && 'heading' in vpsPose.attitude && typeof vpsPose.attitude.heading === 'number') {
-    heading = vpsPose.attitude.heading;
+  let headingDegrees: number | null = null;
+  if (vpsPose.attitude && 'headingDegrees' in vpsPose.attitude && typeof vpsPose.attitude.headingDegrees === 'number') {
+    headingDegrees = vpsPose.attitude.headingDegrees;
   }
 
   if (!userMarker) {
     // Create container element for both dot and cone
     const containerEl = document.createElement('div');
-    containerEl.style.display = 'flex';
-    containerEl.style.flexDirection = 'column';
-    containerEl.style.alignItems = 'center';
-    containerEl.style.width = '14px';
-    containerEl.style.height = '14px';
+    containerEl.classList.add('location-container');
 
     // Create HTML element for the blue dot
     const dotEl = document.createElement('div');
-    dotEl.style.width = '12px';
-    dotEl.style.height = '12px';
-    dotEl.style.borderRadius = '50%';
-    dotEl.style.backgroundColor = '#007bff';
-    dotEl.style.border = '2px solid #ffffff';
-    dotEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
-    dotEl.style.zIndex = '2';
-    dotEl.style.position = 'absolute';
+    dotEl.classList.add('location-dot');
 
     // Create HTML element for the heading cone
     const coneEl = document.createElement('div');
@@ -298,6 +287,8 @@ function updateMapUserPosition(): void {
     const maplibregl = (window as any).maplibregl;
     userMarker = new maplibregl.Marker({ 
       element: containerEl,
+      pitchAlignment: 'map',
+      rotationAlignment: 'map',
       anchor: 'center'
     })
       .setLngLat([lon, lat])
@@ -308,12 +299,9 @@ function updateMapUserPosition(): void {
   }
 
   // Update heading cone rotation if heading is available
-  if (heading !== null && markerConeElement) {
-    let headingDegrees: number;
-    if (heading > 2 * Math.PI) {
-      headingDegrees = heading % 360;
-    } else {
-      headingDegrees = (heading * 180 / Math.PI) % 360;
+  if (headingDegrees !== null && markerConeElement) {
+    if (headingDegrees < 0) {
+      headingDegrees += 360;
     }
     
     markerConeElement.style.transform = `rotate(${headingDegrees}deg) translate(-50%, -50%)`;

@@ -8,126 +8,8 @@
     <!-- MapLibre GL JS -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
-    <style>
-      /* Mobile-first responsive styles */
-      .location-compass {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        z-index: -1;
-        position: absolute;
-        top: calc(50% + 1px);
-        left: 50%;
-        border: 20px solid;
-        border-color: transparent;
-        border-top-color: #008DF1;
-        opacity: 0.5;
-        transform-origin: 0% 0%;
-      }
-      .main-container {
-        padding: 1rem;
-        font-family: system-ui, sans-serif;
-        max-width: 1200px;
-        margin: 0 auto;
-      }
-      
-      .section {
-        background: #f5f5f5;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-top: 1.5rem;
-      }
-      
-      .section-title {
-        margin-top: 0;
-        font-size: 1.25rem;
-      }
-      
-      .button-group {
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-        margin-top: 1rem;
-      }
-      
-      .btn {
-        padding: 0.75rem 1rem;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.875rem;
-        font-weight: 500;
-        min-height: 44px;
-        white-space: nowrap;
-      }
-      
-      .btn-success {
-        background: #28a745;
-        color: white;
-      }
-      
-      .btn-primary {
-        background: #007bff;
-        color: white;
-      }
-      
-      .btn:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-      
-      .map-container {
-        width: 100%;
-        height: 400px;
-        margin-top: 1rem;
-        border-radius: 4px;
-        overflow: hidden;
-        background: #e5e5e5;
-        cursor: crosshair;
-      }
-      
-      .position-info {
-        background: white;
-        padding: 1rem;
-        border-radius: 4px;
-        margin-top: 1rem;
-        font-size: 0.9rem;
-      }
-      
-      .position-info p {
-        margin: 0.5rem 0;
-      }
-      
-      .position-info strong {
-        display: inline-block;
-        min-width: 80px;
-      }
-      
-      /* Tablet and desktop styles */
-      @media (min-width: 768px) {
-        .main-container {
-          padding: 2rem;
-        }
-        
-        .section {
-          padding: 1.5rem;
-        }
-        
-        .section-title {
-          font-size: 1.5rem;
-        }
-        
-        .map-container {
-          height: 500px;
-        }
-        
-        .btn {
-          padding: 0.5rem 1rem;
-          font-size: 0.875rem;
-          min-height: auto;
-        }
-      }
-    </style>
+    <!-- Unified Styles -->
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <div class="main-container">
@@ -193,7 +75,7 @@
         <p style="color: #666; font-size: 0.9rem;">
           Click on the map to set destination marker
         </p>
-        <div id="map-container" class="map-container"></div>
+        <div id="map-container" class="map-container clickable"></div>
       </div>
     </div>
     <script type="module" src="/src/combined-gnss.ts"></script>

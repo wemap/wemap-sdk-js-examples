@@ -1,0 +1,320 @@
+/* WeMap SDK Examples - Unified Stylesheet */
+
+/* ============================================
+   Base Styles
+   ============================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* ============================================
+   Layout Components
+   ============================================ */
+
+.main-container {
+  padding: 1rem;
+  font-family: system-ui, sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section {
+  background: #f5f5f5;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1.5rem;
+}
+
+.section-title {
+  margin-top: 0;
+  font-size: 1.25rem;
+}
+
+/* ============================================
+   Navigation Links
+   ============================================ */
+
+.nav-links {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: #e7f3ff;
+  border-radius: 4px;
+  border: 1px solid #b3d9ff;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.nav-links a {
+  display: inline-block;
+  margin: 0.25rem 0.5rem 0.25rem 0;
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.nav-links a:hover {
+  text-decoration: underline;
+}
+
+/* ============================================
+   Buttons
+   ============================================ */
+
+.button-group {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.btn {
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  min-height: 44px; /* Touch-friendly minimum size */
+  white-space: nowrap;
+  transition: opacity 0.2s ease;
+}
+
+.btn-primary {
+  background: #007bff;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.btn-success {
+  background: #28a745;
+  color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #218838;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   Forms
+   ============================================ */
+
+.form-group {
+  margin-top: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+/* ============================================
+   Map Container
+   ============================================ */
+
+.map-container {
+  width: 100%;
+  height: 400px;
+  margin-top: 1rem;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #e5e5e5;
+}
+
+.map-container.clickable {
+  cursor: crosshair;
+}
+
+/* ============================================
+   Location Compass (for map markers)
+   ============================================ */
+
+.location-compass {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  z-index: -1;
+  position: absolute;
+  top: calc(50% + 1px);
+  left: 50%;
+  border: 20px solid;
+  border-color: transparent;
+  border-top-color: #008DF1;
+  opacity: 0.5;
+  transform-origin: 0% 0%;
+  transform: rotate(0deg) translate(-50%, -50%);
+}
+
+.location-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: #008DF1;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  z-index: 2;
+  position: absolute;
+}
+
+.location-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 14px;
+  height: 14px;
+}
+
+/* ============================================
+   Position Info Display
+   ============================================ */
+
+.position-info {
+  background: white;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.position-info p {
+  margin: 0.5rem 0;
+}
+
+.position-info strong {
+  display: inline-block;
+  min-width: 80px;
+}
+
+/* ============================================
+   Info Boxes
+   ============================================ */
+
+.info-box {
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+.info-box-success {
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  color: #155724;
+}
+
+.info-box-warning {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+}
+
+.info-box-error {
+  background: #f8d7da;
+  border: 1px solid #dc3545;
+  color: #721c24;
+}
+
+/* ============================================
+   Code/Pre Blocks
+   ============================================ */
+
+pre {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  overflow-x: auto;
+  background: #f5f5f5;
+  padding: 0.5rem;
+  border-radius: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* ============================================
+   Responsive Styles - Tablet (768px+)
+   ============================================ */
+
+@media (min-width: 768px) {
+  .main-container {
+    padding: 2rem;
+  }
+  
+  .section {
+    padding: 1.5rem;
+  }
+  
+  .section-title {
+    font-size: 1.5rem;
+  }
+  
+  .map-container {
+    height: 500px;
+  }
+  
+  .btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    min-height: auto;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+/* ============================================
+   Responsive Styles - Desktop (1024px+)
+   ============================================ */
+
+@media (min-width: 1024px) {
+  .button-group {
+    flex-wrap: nowrap;
+  }
+}
+
