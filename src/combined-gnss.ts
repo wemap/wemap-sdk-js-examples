@@ -19,7 +19,6 @@ import {
   ItineraryInfoManager,
   type Itinerary as ItineraryType
 } from '@wemap-sdk/routing';
-
 // Get DOM elements
 const mapContainer = document.getElementById('map-container') as HTMLDivElement;
 const currentLatEl = document.getElementById('current-lat') as HTMLSpanElement;
@@ -564,6 +563,7 @@ async function handleStartGNSS() {
 
     console.log('GnssWifiLocationSource started');
   } catch (error) {
+    console.error(error);
     gnssError = error instanceof Error ? error.message : String(error);
     updateErrorDisplay();
     updateButtonStates();

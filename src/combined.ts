@@ -11,6 +11,7 @@ import { CoreConfig } from '@wemap-sdk/core';
 import { 
   VPSLocationSource,
   MapMatching,
+  requestSensorPermissions,
   type Pose 
 } from '@wemap-sdk/positioning';
 import { Camera } from '@wemap-sdk/camera';
@@ -563,8 +564,9 @@ function updateNavigationInfo(): void {
 async function handleStartVPS() {
   try {
     // Request device orientation permission (iOS)
-    if ((DeviceOrientationEvent as any).requestPermission) {
-      await (DeviceOrientationEvent as any).requestPermission();
+    const hasPermission = await requestSensorPermissions();
+    if (!hasPermission) {
+      throw new Error('Permission denied');
     }
     
     // Start VPS source
