@@ -42,8 +42,8 @@ const core = new CoreConfig();
 
 try {
   await core.init({
-    emmid: '23270',
-    token: 'UG509QQDZGP6YBC98XIRB5ZBU',
+    emmid: '30763',
+    token: 'WEMAP_TOKEN',
   });
 } catch (error) {
   console.warn('Core initialization failed, continuing without it:', error);
