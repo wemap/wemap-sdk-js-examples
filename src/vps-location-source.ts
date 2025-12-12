@@ -5,6 +5,7 @@
  */
 import { CoreConfig } from '@wemap-sdk/core';
 import { 
+  requestSensorPermissions,
   VPSLocationSource, 
   type Pose 
 } from '@wemap-sdk/positioning';
@@ -19,7 +20,7 @@ let coreInitialized = false;
 
 try {
   await core.init({
-    emmid: '30763',
+    emmid: '30265',
     token: 'WEMAP_TOKEN',
   });
   coreInitialized = true;
@@ -270,7 +271,7 @@ async function handleStopVPS() {
 
 async function handleStartVPSScan() {
   try {
-    await (DeviceOrientationEvent as any).requestPermission();
+    await requestSensorPermissions();
     // Set up camera first if not already set up
     if (!camera) {
       await setupCamera();
