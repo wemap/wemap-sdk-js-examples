@@ -3,18 +3,18 @@
  * 
  * Demonstrates how to use MapMatching with VPSLocationSource to project user position onto an itinerary
  */
-import { CoreConfig } from '@wemap-sdk/core';
+import { CoreConfig } from '@wemap/core';
 import { 
   VPSLocationSource,
   MapMatching,
   type Pose
-} from '@wemap-sdk/positioning';
-import { Camera } from '@wemap-sdk/camera';
+} from '@wemap/positioning';
+import { Camera } from '@wemap/camera';
 import { 
   Itinerary,
   type Itinerary as ItineraryType,
   Coordinates
-} from '@wemap-sdk/routing';
+} from '@wemap/routing';
 
 // Display example info
 const app = document.querySelector<HTMLDivElement>('#app')!;

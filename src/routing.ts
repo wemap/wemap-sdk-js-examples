@@ -3,12 +3,12 @@
  * 
  * Demonstrates Router, route calculation, itinerary management, and Navigation utilities
  */
-import { CoreConfig } from '@wemap-sdk/core';
+import { CoreConfig } from '@wemap/core';
 import { 
   Router,
   Coordinates,
   type Itinerary as ItineraryType,
-} from '@wemap-sdk/routing';
+} from '@wemap/routing';
 
 // Display example info
 const app = document.querySelector<HTMLDivElement>('#app')!;

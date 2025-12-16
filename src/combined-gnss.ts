@@ -7,18 +7,18 @@
  * - Start itinerary (calls router)
  * - Shows itinerary on map + sets for map matching
  */
-import { CoreConfig } from '@wemap-sdk/core';
+import { CoreConfig } from '@wemap/core';
 import { 
   GnssWifiLocationSource,
   MapMatching,
   type Pose 
-} from '@wemap-sdk/positioning';
+} from '@wemap/positioning';
 import { 
   Router,
   Coordinates,
   ItineraryInfoManager,
   type Itinerary as ItineraryType
-} from '@wemap-sdk/routing';
+} from '@wemap/routing';
 // Get DOM elements
 const mapContainer = document.getElementById('map-container') as HTMLDivElement;
 const currentLatEl = document.getElementById('current-lat') as HTMLSpanElement;

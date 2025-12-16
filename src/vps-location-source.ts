@@ -3,13 +3,13 @@
  * 
  * Demonstrates VPSLocationSource: VPS + PDR + AbsoluteAttitude
  */
-import { CoreConfig } from '@wemap-sdk/core';
+import { CoreConfig } from '@wemap/core';
 import { 
   requestSensorPermissions,
   VPSLocationSource, 
   type Pose 
-} from '@wemap-sdk/positioning';
-import { Camera } from '@wemap-sdk/camera';
+} from '@wemap/positioning';
+import { Camera } from '@wemap/camera';
 
 // Display example info
 const app = document.querySelector<HTMLDivElement>('#app')!;

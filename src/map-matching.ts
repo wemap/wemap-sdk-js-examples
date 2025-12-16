@@ -3,17 +3,17 @@
  * 
  * Demonstrates how to use MapMatching to project user position onto an itinerary
  */
-import { CoreConfig } from '@wemap-sdk/core';
+import { CoreConfig } from '@wemap/core';
 import { 
   GnssWifiLocationSource,
   MapMatching,
   type Pose
-} from '@wemap-sdk/positioning';
+} from '@wemap/positioning';
 import { 
   Itinerary,
   type Itinerary as ItineraryType,
   Coordinates
-} from '@wemap-sdk/routing';
+} from '@wemap/routing';
 
 // Display example info
 const app = document.querySelector<HTMLDivElement>('#app')!;

@@ -3,11 +3,11 @@
  * 
  * Demonstrates GnssWifiLocationSource: GNSS/WiFi + PDR + AbsoluteAttitude
  */
-import { CoreConfig } from '@wemap-sdk/core';
+import { CoreConfig } from '@wemap/core';
 import { 
   GnssWifiLocationSource,
   type Pose 
-} from '@wemap-sdk/positioning';
+} from '@wemap/positioning';
 
 // Display example info
 const app = document.querySelector<HTMLDivElement>('#app')!;

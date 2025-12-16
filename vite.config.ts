@@ -49,14 +49,14 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@wemap-sdk/core': resolve(__dirname, '../../packages/core/index.ts'),
-      '@wemap-sdk/positioning': resolve(__dirname, '../../packages/positioning/index.ts'),
-      '@wemap-sdk/routing': resolve(__dirname, '../../packages/routing/index.ts'),
-      '@wemap-sdk/camera': resolve(__dirname, '../../packages/camera/index.ts'),
+      '@wemap/core': resolve(__dirname, '../../packages/core/index.ts'),
+      '@wemap/positioning': resolve(__dirname, '../../packages/positioning/index.ts'),
+      '@wemap/routing': resolve(__dirname, '../../packages/routing/index.ts'),
+      '@wemap/camera': resolve(__dirname, '../../packages/camera/index.ts'),
     },
   },
   optimizeDeps: {
-    exclude: ['@wemap-sdk/core', '@wemap-sdk/positioning', '@wemap-sdk/routing', '@wemap-sdk/camera'],
+    exclude: ['@wemap/core', '@wemap/positioning', '@wemap/routing', '@wemap/camera'],
   },
 });
 

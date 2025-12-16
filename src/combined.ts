@@ -7,20 +7,20 @@
  * - Start itinerary (calls router)
  * - Shows itinerary on map + sets for map matching
  */
-import { CoreConfig } from '@wemap-sdk/core';
+import { CoreConfig } from '@wemap/core';
 import { 
   VPSLocationSource,
   MapMatching,
   requestSensorPermissions,
   type Pose 
-} from '@wemap-sdk/positioning';
-import { Camera } from '@wemap-sdk/camera';
+} from '@wemap/positioning';
+import { Camera } from '@wemap/camera';
 import { 
   Router,
   Coordinates,
   ItineraryInfoManager,
   type Itinerary as ItineraryType
-} from '@wemap-sdk/routing';
+} from '@wemap/routing';
 
 // Get DOM elements
 const mapContainer = document.getElementById('map-container') as HTMLDivElement;
