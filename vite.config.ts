@@ -48,7 +48,6 @@ export default defineConfig({
         'vps-location-source': resolve(__dirname, 'vps-location-source.html'),
         routing: resolve(__dirname, 'routing.html'),
         'map-matching': resolve(__dirname, 'map-matching.html'),
-        'map-matching-vps': resolve(__dirname, 'map-matching-vps.html'),
       },
     },
   },
