@@ -6,8 +6,13 @@ import fs from 'fs';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const rootDir = resolve(__dirname, '../..');
 
-// HTTPS configuration
+// Detect if we're in a monorepo (check if packages directory exists)
+const isMonorepo = fs.existsSync(resolve(__dirname, '../../packages'));
+
+// HTTPS configuration (only in monorepo)
 const httpsConfig = (() => {
+  if (!isMonorepo) return undefined;
+  
   const certPath = resolve(rootDir, '.certs/cert.pem');
   const keyPath = resolve(rootDir, '.certs/key.pem');
   
@@ -30,7 +35,7 @@ export default defineConfig({
     strictPort: false, // Try next available port if 4200 is taken
   },
   build: {
-    outDir: '../../dist/apps/examples',
+    outDir: isMonorepo ? '../../dist/apps/examples' : 'dist',
     commonjsOptions: {
       ignoreTryCatch: false,
     },
@@ -47,16 +52,19 @@ export default defineConfig({
       },
     },
   },
-  resolve: {
-    alias: {
-      '@wemap/core': resolve(__dirname, '../../packages/core/index.ts'),
-      '@wemap/positioning': resolve(__dirname, '../../packages/positioning/index.ts'),
-      '@wemap/routing': resolve(__dirname, '../../packages/routing/index.ts'),
-      '@wemap/camera': resolve(__dirname, '../../packages/camera/index.ts'),
+  // Only use path aliases in monorepo; standalone uses npm packages
+  ...(isMonorepo && {
+    resolve: {
+      alias: {
+        '@wemap/core': resolve(__dirname, '../../packages/core/index.ts'),
+        '@wemap/positioning': resolve(__dirname, '../../packages/positioning/index.ts'),
+        '@wemap/routing': resolve(__dirname, '../../packages/routing/index.ts'),
+        '@wemap/camera': resolve(__dirname, '../../packages/camera/index.ts'),
+      },
     },
-  },
-  optimizeDeps: {
-    exclude: ['@wemap/core', '@wemap/positioning', '@wemap/routing', '@wemap/camera'],
-  },
+    optimizeDeps: {
+      exclude: ['@wemap/core', '@wemap/positioning', '@wemap/routing', '@wemap/camera'],
+    },
+  }),
 });
 

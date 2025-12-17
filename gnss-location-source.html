@@ -4,11 +4,82 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WeMap SDK - GnssWifiLocationSource Example</title>
+    <title>Wemap SDK - GnssWifiLocationSource Example</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div style="padding: 2rem; font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto;">
+        <div class="nav-links">
+          <strong>📋 Example Pages:</strong>
+          <a href="/index.html">Index</a>
+          <a href="/combined.html">Combined (VPS)</a>
+          <a href="/combined-gnss.html">Combined (GNSS)</a>
+          <a href="/gnss-location-source.html" style="font-weight: bold;">GnssWifiLocationSource</a>
+          <a href="/vps-location-source.html">VPSLocationSource</a>
+          <a href="/map-matching.html">MapMatching</a>
+          <a href="/routing.html">Routing</a>
+        </div>
+        
+        <h1>GnssWifiLocationSource Example</h1>
+        
+        <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+          <h3>Core Status</h3>
+          <p><strong>Initialized:</strong> <span id="core-status" style="color: #dc3545;">✗ No</span></p>
+          <p><strong>UI update timestamp:</strong> <span id="ui-update-time"></span></p>
+        </div>
+
+        <div style="background: #f5f5f5; padding: 1.5rem; border-radius: 8px; margin-top: 2rem;">
+          <h2 style="margin-top: 0;">GnssWifiLocationSource</h2>
+          <p style="color: #666; font-size: 0.9rem;">
+            Combines GNSS/WiFi + PDR + AbsoluteAttitude
+          </p>
+          
+          <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+              <div>
+                <strong>Status:</strong> <span id="gnss-status" style="color: #dc3545;">○ Stopped</span>
+                <span style="margin-left: 1rem;"><strong>Updates:</strong> <span id="update-count">0</span></span>
+                <span id="error-display" style="margin-left: 1rem; color: #dc3545; display: none;">
+                  <strong>⚠️ Error:</strong> <span id="error-message"></span>
+                </span>
+              </div>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button 
+                  id="start-gnss-source" 
+                  style="padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                >
+                  Start GNSS Source
+                </button>
+                <button 
+                  id="stop-gnss-source" 
+                  style="padding: 0.5rem 1rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                >
+                  Stop GNSS Source
+                </button>
+              </div>
+            </div>
+            
+            <div id="pose-container">
+              <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
+                <h4>Current Pose</h4>
+                <p style="color: #999; margin-left: 1rem;">No pose data yet</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 2rem; padding: 1rem; background: #fff3cd; border-radius: 8px; border: 1px solid #ffc107;">
+          <p><strong>💡 GnssWifiLocationSource:</strong></p>
+          <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
+            <li>Requires location permissions (GPS/WiFi)</li>
+            <li>Includes AbsoluteAttitude for device orientation</li>
+            <li>Uses PositionSmoother by default for smoother position updates</li>
+            <li>Works best outdoors or in areas with WiFi coverage</li>
+          </ul>
+          <p style="margin-top: 0.5rem;"><strong>Note:</strong> Check the browser console for detailed logs.</p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/gnss-location-source.ts"></script>
   </body>
 </html>
-

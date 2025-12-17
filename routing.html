@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WeMap SDK - Routing Example</title>
+    <title>Wemap SDK - Routing Example</title>
     <!-- MapLibre GL JS -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
@@ -12,8 +12,113 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div class="main-container">
+        <div class="nav-links">
+          <strong>📋 Example Pages:</strong>
+          <a href="/index.html">Index</a>
+          <a href="/combined.html">Combined (VPS)</a>
+          <a href="/combined-gnss.html">Combined (GNSS)</a>
+          <a href="/gnss-location-source.html">GnssWifiLocationSource</a>
+          <a href="/vps-location-source.html">VPSLocationSource</a>
+          <a href="/map-matching.html">MapMatching</a>
+          <a href="/routing.html" style="font-weight: bold;">Routing</a>
+        </div>
+        <div id="content-container">
+          <h1 style="font-size: 1.5rem; margin: 0 0 1rem 0;">Routing Example</h1>
+          
+          <div class="section" style="background: #e3f2fd;">
+            <h3 style="margin-top: 0; font-size: 1.125rem;">Core Status</h3>
+            <p style="margin: 0.5rem 0;"><strong>Initialized:</strong> <span id="core-status" style="color: #dc3545;">✗ No</span></p>
+          </div>
+
+          <div class="section">
+            <h2 class="section-title">Calculate Route</h2>
+
+            <div style="margin-bottom: 1rem;">
+              <div style="margin-bottom: 0.75rem;">
+                <strong>Router Status:</strong> <span id="router-status" style="color: #dc3545;">○ Not Initialized</span>
+                <div id="router-error" style="margin-top: 0.5rem; color: #dc3545; font-size: 0.875rem; display: none;">
+                  <strong>⚠️ Error:</strong> <span id="router-error-message"></span>
+                </div>
+              </div>
+              <div class="button-group">
+                <button 
+                  id="init-router" 
+                  class="btn btn-success"
+                >
+                  Initialize Router
+                </button>
+              </div>
+            </div>
+
+            <p style="color: #666; font-size: 0.9rem; margin: 0.5rem 0;">
+              Click on the map to set origin and destination, then calculate the route
+            </p>
+            
+            <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
+              <div id="itinerary-info-container"></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2 class="section-title">Navigation Utilities</h2>
+            <p style="color: #666; font-size: 0.9rem; margin: 0.5rem 0;">
+              Click on the map to set a test position along the route and see navigation information
+            </p>
+            
+            <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
+              <div id="navigation-info-container"></div>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <h2 class="section-title">Map Visualization</h2>
+          <p style="color: #666; font-size: 0.9rem;">
+            Interactive map showing calculated route and test position
+          </p>
+          <div id="map-container" class="map-container clickable" style="position: relative;">
+            <div style="position: absolute; top: 10px; right: 10px; z-index: 1000; display: flex; gap: 0.5rem;">
+              <button 
+                id="calculate-route" 
+                class="btn btn-primary"
+                disabled
+                style="box-shadow: 0 2px 4px rgba(0,0,0,0.2);"
+              >
+                Calculate Route
+              </button>
+              <button 
+                id="clear-route" 
+                class="btn btn-danger"
+                disabled
+                style="box-shadow: 0 2px 4px rgba(0,0,0,0.2);"
+              >
+                Clear Route
+              </button>
+            </div>
+          </div>
+          <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #666;">
+            <span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; margin-right: 0.5rem;">●</span> Origin
+            <span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; margin: 0 0.5rem;">●</span> Destination
+            <span style="background: #ffc107; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; margin-left: 0.5rem;">●</span> Test Position
+          </p>
+          <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #666; font-style: italic;">
+            💡 Click on the map to set origin, destination, or test position. A popup will ask which type of point you want to set.
+          </p>
+          <div class="info-box info-box-warning" style="margin-top: 2rem;">
+            <p><strong>💡 Routing Usage:</strong></p>
+            <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
+              <li>Initialize Router first (uses config from CoreConfig if available)</li>
+              <li>Calculate routes between two coordinates</li>
+              <li>View route information including distance, duration, and legs</li>
+              <li>Test Navigation utilities by setting a test position along the route</li>
+              <li>Navigation info shows distance remaining, progress, and next instructions</li>
+            </ul>
+            <p style="margin-top: 0.5rem;"><strong>Note:</strong> Check the browser console for detailed logs.</p>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/routing.ts"></script>
   </body>
 </html>
-

@@ -119,120 +119,94 @@ function renderPose(pose: Pose): string {
 
 // Function to update the UI
 function updateUI() {
-  app.innerHTML = `
-    <div style="padding: 2rem; font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto;">
-      <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e7f3ff; border-radius: 4px; border: 1px solid #b3d9ff;">
-        <strong>📋 Example Pages:</strong>
-        <a href="/index.html" style="margin-left: 1rem; color: #0066cc;">PositioningProvider</a>
-        <a href="/vps-location-source.html" style="margin-left: 1rem; color: #0066cc; font-weight: bold;">VPSLocationSource</a>
-        <a href="/gnss-location-source.html" style="margin-left: 1rem; color: #0066cc;">GnssWifiLocationSource</a>
-      </div>
-      
-      <h1>VPSLocationSource Example</h1>
-      
-      <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
-        <h3>Core Status</h3>
-        <p><strong>Initialized:</strong> <span style="color: ${coreInitialized ? '#28a745' : '#dc3545'}">${coreInitialized ? '✓ Yes' : '✗ No'}</span></p>
-        <p><strong>UI update time:</strong> ${new Date().toISOString()}</p>
-      </div>
+  // Update core status
+  const coreStatusEl = document.getElementById('core-status');
+  if (coreStatusEl) {
+    coreStatusEl.textContent = coreInitialized ? '✓ Yes' : '✗ No';
+    coreStatusEl.style.color = coreInitialized ? '#28a745' : '#dc3545';
+  }
+  
+  const uiUpdateTimeEl = document.getElementById('ui-update-time');
+  if (uiUpdateTimeEl) {
+    uiUpdateTimeEl.textContent = new Date().toISOString();
+  }
 
-      <div style="background: #f5f5f5; padding: 1.5rem; border-radius: 8px; margin-top: 2rem;">
-        <h2 style="margin-top: 0;">VPSLocationSource</h2>
-        <p style="color: #666; font-size: 0.9rem;">
-          Combines VPS (Visual Positioning System) + PDR (Pedestrian Dead Reckoning) + AbsoluteAttitude
-        </p>
-        
-        <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
-            <div>
-              <strong>Status:</strong> <span style="color: ${vpsLocationSource.isStarted ? '#28a745' : '#dc3545'}">${vpsLocationSource.isStarted ? '● Running' : '○ Stopped'}</span>
-              <strong>Scan Status:</strong> <span style="color: ${isScanning ? '#28a745' : '#dc3545'}">${isScanning ? '● Running' : '○ Stopped'}</span>
-              <span style="margin-left: 1rem;"><strong>Updates:</strong> ${vpsUpdateCount}</span>
-              ${vpsError ? `
-                <span style="margin-left: 1rem; color: #dc3545;">
-                  <strong>⚠️ Error:</strong> ${vpsError}
-                </span>
-              ` : ''}
-            </div>
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <button 
-                id="start-vps-source" 
-                style="padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;"
-              >
-                Start VPS Source
-              </button>
-              <button 
-                id="stop-vps-source" 
-                style="padding: 0.5rem 1rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;"
-              >
-                Stop VPS Source
-              </button>
+  // Update VPS status
+  const vpsStatusEl = document.getElementById('vps-status');
+  if (vpsStatusEl) {
+    vpsStatusEl.textContent = vpsLocationSource.isStarted ? '● Running' : '○ Stopped';
+    vpsStatusEl.style.color = vpsLocationSource.isStarted ? '#28a745' : '#dc3545';
+  }
 
-              <button 
-                id="start-vps-scan" 
-                style="padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;"
-              >
-                Start VPS Scan
-              </button>
-              <button 
-                id="stop-vps-scan" 
-                style="padding: 0.5rem 1rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;"
-              >
-                Stop VPS Scan
-              </button>
-            </div>
-          </div>
-          
-          ${renderPose(vpsPose)}
-        </div>
-      </div>
+  const scanStatusEl = document.getElementById('scan-status');
+  if (scanStatusEl) {
+    scanStatusEl.textContent = isScanning ? '● Running' : '○ Stopped';
+    scanStatusEl.style.color = isScanning ? '#28a745' : '#dc3545';
+  }
 
-      ${camera ? `
-        <div style="margin-top: 2rem;">
-          <h2>Camera (for VPS)</h2>
-          <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
-            <p><strong>Status:</strong> <span style="color: ${camera.state === 'started' ? '#28a745' : camera.state === 'starting' ? '#ffc107' : '#dc3545'}">${camera.state}</span></p>
-            ${camera.fov ? `
-              <p><strong>FOV:</strong> Vertical: ${camera.fov.vertical.toFixed(2)}°, Horizontal: ${camera.fov.horizontal.toFixed(2)}°</p>
-            ` : ''}
-            <p style="color: #6c757d; font-size: 0.875rem; margin-top: 0.5rem;">
-              Camera feed is displayed below (if started). The VPSLocationSource will automatically detect and use this camera.
-            </p>
-          </div>
-        </div>
-      ` : ''}
+  const updateCountEl = document.getElementById('update-count');
+  if (updateCountEl) {
+    updateCountEl.textContent = vpsUpdateCount.toString();
+  }
 
-      <div style="margin-top: 2rem; padding: 1rem; background: #fff3cd; border-radius: 8px; border: 1px solid #ffc107;">
-        <p><strong>💡 VPSLocationSource:</strong></p>
-        <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
-          <li>Requires camera permissions and VPS endpoint (from CoreConfig)</li>
-          <li>Combines VPS positioning with PDR for continuous updates</li>
-          <li>Includes AbsoluteAttitude for device orientation</li>
-          <li>Uses PositionSmoother by default for smoother position updates</li>
-        </ul>
-        <p style="margin-top: 0.5rem;"><strong>Note:</strong> Check the browser console for detailed logs.</p>
-      </div>
-    </div>
-  `;
+  // Update error display
+  const errorDisplayEl = document.getElementById('error-display');
+  const errorMessageEl = document.getElementById('error-message');
+  if (errorDisplayEl && errorMessageEl) {
+    if (vpsError) {
+      errorDisplayEl.style.display = 'inline';
+      errorMessageEl.textContent = vpsError;
+    } else {
+      errorDisplayEl.style.display = 'none';
+    }
+  }
 
-  // Attach event listeners
+  // Update pose container
+  const poseContainerEl = document.getElementById('pose-container');
+  if (poseContainerEl) {
+    poseContainerEl.innerHTML = renderPose(vpsPose);
+  }
+
+  // Update camera section
+  const cameraSectionEl = document.getElementById('camera-section');
+  const cameraStatusEl = document.getElementById('camera-status');
+  const cameraFovEl = document.getElementById('camera-fov');
+  
+  if (camera) {
+    if (cameraSectionEl) {
+      cameraSectionEl.style.display = 'block';
+    }
+    if (cameraStatusEl) {
+      cameraStatusEl.textContent = camera.state;
+      cameraStatusEl.style.color = camera.state === 'started' ? '#28a745' : camera.state === 'starting' ? '#ffc107' : '#dc3545';
+    }
+    if (cameraFovEl && camera.fov) {
+      cameraFovEl.innerHTML = `<p><strong>FOV:</strong> Vertical: ${camera.fov.vertical.toFixed(2)}°, Horizontal: ${camera.fov.horizontal.toFixed(2)}°</p>`;
+    } else if (cameraFovEl) {
+      cameraFovEl.innerHTML = '';
+    }
+  } else {
+    if (cameraSectionEl) {
+      cameraSectionEl.style.display = 'none';
+    }
+  }
+
+  // Attach event listeners (only if not already attached)
   const startVpsBtn = document.getElementById('start-vps-source');
   const stopVpsBtn = document.getElementById('stop-vps-source');
   const startVpsScanBtn = document.getElementById('start-vps-scan');
   const stopVpsScanBtn = document.getElementById('stop-vps-scan');
   
-  if (startVpsBtn) {
+  if (startVpsBtn && !startVpsBtn.onclick) {
     startVpsBtn.onclick = handleStartVPS;
   }
-  if (stopVpsBtn) {
+  if (stopVpsBtn && !stopVpsBtn.onclick) {
     stopVpsBtn.onclick = handleStopVPS;
   }
-
-  if (startVpsScanBtn) {
+  if (startVpsScanBtn && !startVpsScanBtn.onclick) {
     startVpsScanBtn.onclick = handleStartVPSScan;
   }
-
-  if (stopVpsScanBtn) {
+  if (stopVpsScanBtn && !stopVpsScanBtn.onclick) {
     stopVpsScanBtn.onclick = handleStopVPSScan;
   }
 }
@@ -331,7 +305,7 @@ async function setupCamera(): Promise<void> {
     // Check camera availability
     await Camera.checkAvailability();
     
-    // Get or create camera container
+    // Get camera container from HTML
     cameraContainer = document.getElementById('camera-container');
     if (!cameraContainer) {
       cameraContainer = document.createElement('div');
@@ -342,6 +316,7 @@ async function setupCamera(): Promise<void> {
     } else {
       // Clear container if it already exists
       cameraContainer.innerHTML = '';
+      cameraContainer.style.display = 'block';
     }
     
     // Create camera instance
@@ -383,6 +358,9 @@ async function stopCamera(): Promise<void> {
       await camera.stop();
       camera.release();
       camera = null;
+      if (cameraContainer) {
+        cameraContainer.style.display = 'none';
+      }
       console.log('Camera stopped and released');
     } catch (error) {
       console.error('Failed to stop camera:', error);
@@ -399,15 +377,12 @@ async function stopCamera(): Promise<void> {
     console.log('VPSLocationSource example page initialized.');
   } catch (error) {
     console.error('Failed to initialize example page:', error);
-    app.innerHTML = `
-      <div style="padding: 2rem; font-family: system-ui, sans-serif;">
-        <h1>VPSLocationSource Example</h1>
-        <div style="margin-top: 2rem; padding: 1rem; background: #f8d7da; border-radius: 8px; border: 1px solid #dc3545;">
-          <h2>Error</h2>
-          <p><strong>Failed to initialize:</strong> ${error instanceof Error ? error.message : String(error)}</p>
-        </div>
-      </div>
-    `;
+    const errorDisplayEl = document.getElementById('error-display');
+    const errorMessageEl = document.getElementById('error-message');
+    if (errorDisplayEl && errorMessageEl) {
+      errorDisplayEl.style.display = 'inline';
+      errorMessageEl.textContent = `Failed to initialize: ${error instanceof Error ? error.message : String(error)}`;
+    }
   }
 })();
 

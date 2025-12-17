@@ -7,7 +7,9 @@ import { CoreConfig } from '@wemap/core';
 import { 
   Router,
   Coordinates,
+  ItineraryInfoManager,
   type Itinerary as ItineraryType,
+  type ItineraryInfo,
 } from '@wemap/routing';
 
 // Display example info
@@ -35,8 +37,13 @@ let routeError: string | null = null;
 let isCalculating = false;
 
 // Navigation state
-let navigationInfo: any | null = null;
+let navigationInfo: ItineraryInfo | null = null;
 let testPosition: { lat: number; lon: number } | null = null;
+let itineraryInfoManager: ItineraryInfoManager | null = null;
+
+// Route coordinates state
+let originPosition: { lat: number; lon: number } | null = null;
+let destinationPosition: { lat: number; lon: number } | null = null;
 
 // Map state
 let map: any = null;
@@ -49,16 +56,9 @@ let router: Router | null = null;
 // Initialize Router
 function initializeRouter(): void {
   try {
-    const config = CoreConfig.getConfig();
-    
-    // Get routing configuration from CoreConfig
-    const routingType = config?.routingType || 'osrm';
-    const routingUrl = config?.routingUrl || 'https://routing-osrm.getwemap.com';
     
     // Initialize Remoterouter with config
     router = new Router();
-    
-    console.log('Router initialized:', { routingType, routingUrl });
     updateUI();
   } catch (error) {
     routeError = error instanceof Error ? error.message : String(error);
@@ -89,6 +89,10 @@ async function calculateRoute(from: { lat: number; lon: number }, to: { lat: num
     currentItinerary = itineraries[0];
     console.log('Route calculated:', itineraries);
     
+    // Initialize ItineraryInfoManager with the itinerary
+    itineraryInfoManager = new ItineraryInfoManager();
+    itineraryInfoManager.itinerary = currentItinerary;
+    
     // Update navigation info if test position is set
     if (testPosition) {
       updateNavigationInfo();
@@ -108,16 +112,21 @@ async function calculateRoute(from: { lat: number; lon: number }, to: { lat: num
 
 // Update navigation info
 function updateNavigationInfo(): void {
-  if (!currentItinerary || !testPosition) {
+  if (!itineraryInfoManager || !testPosition || !currentItinerary) {
     navigationInfo = null;
+    updateMapTestPosition();
     return;
   }
 
   try {
+    const userPosition = new Coordinates(testPosition.lat, testPosition.lon);
+    navigationInfo = itineraryInfoManager.getInfo(userPosition);
     updateMapTestPosition();
+    console.log('Navigation info updated:', navigationInfo);
   } catch (error) {
     console.error('Failed to calculate navigation info:', error);
     navigationInfo = null;
+    updateMapTestPosition();
   }
 }
 
@@ -150,6 +159,109 @@ function initializeMap(): void {
     console.log('Map loaded');
     updateMapRoute();
     updateMapTestPosition();
+    
+    // Update markers from stored positions if they exist
+    if (originPosition && map && map.loaded()) {
+      updateOriginMarker(originPosition.lat, originPosition.lon);
+    }
+    
+    if (destinationPosition && map && map.loaded()) {
+      updateDestinationMarker(destinationPosition.lat, destinationPosition.lon);
+    }
+  });
+
+  // Add click handler for map interactions with popup
+  let popup: any = null;
+  
+  map.on('click', (e: any) => {
+    const lng = e.lngLat.lng;
+    const lat = e.lngLat.lat;
+    
+    // Remove existing popup if any
+    if (popup) {
+      popup.remove();
+    }
+    
+    const maplibregl = (window as any).maplibregl;
+    
+    // Create popup content with buttons
+    const popupContent = document.createElement('div');
+    popupContent.style.padding = '10px';
+    popupContent.style.minWidth = '150px';
+    
+    const title = document.createElement('div');
+    title.textContent = 'Select point type:';
+    title.style.fontWeight = 'bold';
+    title.style.marginBottom = '10px';
+    popupContent.appendChild(title);
+    
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.flexDirection = 'column';
+    buttonContainer.style.gap = '5px';
+    
+    // Create buttons for each option
+    const createButton = (text: string, onClick: () => void) => {
+      const btn = document.createElement('button');
+      btn.textContent = text;
+      btn.style.padding = '8px 12px';
+      btn.style.border = 'none';
+      btn.style.borderRadius = '4px';
+      btn.style.cursor = 'pointer';
+      btn.style.backgroundColor = '#007bff';
+      btn.style.color = 'white';
+      btn.style.fontSize = '14px';
+      btn.onclick = () => {
+        onClick();
+        if (popup) {
+          popup.remove();
+          popup = null;
+        }
+      };
+      return btn;
+    };
+    
+    // Add "Set as Origin" button
+    const originBtn = createButton('Set as Origin', () => {
+      originPosition = { lat, lon: lng };
+      console.log('Origin set from map click:', { lat, lng });
+      updateOriginMarker(lat, lng);
+      updateUI(); // Update button states
+    });
+    buttonContainer.appendChild(originBtn);
+    
+    // Add "Set as Destination" button
+    const destinationBtn = createButton('Set as Destination', () => {
+      destinationPosition = { lat, lon: lng };
+      console.log('Destination set from map click:', { lat, lng });
+      updateDestinationMarker(lat, lng);
+      updateUI(); // Update button states
+      
+      // If origin is set and router is initialized, calculate route automatically
+      if (originPosition && router) {
+        calculateRoute(originPosition, destinationPosition);
+      }
+    });
+    buttonContainer.appendChild(destinationBtn);
+    
+    // Add "Set as Test Position" button (only if route exists)
+    if (currentItinerary) {
+      const testBtn = createButton('Set as Test Position', () => {
+        testPosition = { lat, lon: lng };
+        updateNavigationInfo();
+        updateUI();
+        console.log('Test position set from map click:', { lat, lng });
+      });
+      buttonContainer.appendChild(testBtn);
+    }
+    
+    popupContent.appendChild(buttonContainer);
+    
+    // Create and add popup to map
+    popup = new maplibregl.Popup({ closeOnClick: true })
+      .setLngLat([lng, lat])
+      .setDOMContent(popupContent)
+      .addTo(map);
   });
 }
 
@@ -213,26 +325,28 @@ function updateMapRoute(): void {
     }
   });
 
-  // Add origin and destination markers
+  // Add origin and destination markers (only update if they don't exist or route changed)
   if (coords.length > 0) {
     const maplibregl = (window as any).maplibregl;
     
-    // Origin marker
+    // Origin marker - update position to match route start
     if (originMarker) {
-      originMarker.remove();
+      originMarker.setLngLat([coords[0].longitude, coords[0].latitude]);
+    } else {
+      originMarker = new maplibregl.Marker({ color: '#28a745' })
+        .setLngLat([coords[0].longitude, coords[0].latitude])
+        .addTo(map);
     }
-    originMarker = new maplibregl.Marker({ color: '#28a745' })
-      .setLngLat([coords[0].longitude, coords[0].latitude])
-      .addTo(map);
 
-    // Destination marker
-    if (destinationMarker) {
-      destinationMarker.remove();
-    }
+    // Destination marker - update position to match route end
     const lastCoord = coords[coords.length - 1];
-    destinationMarker = new maplibregl.Marker({ color: '#dc3545' })
-      .setLngLat([lastCoord.longitude, lastCoord.latitude])
-      .addTo(map);
+    if (destinationMarker) {
+      destinationMarker.setLngLat([lastCoord.longitude, lastCoord.latitude]);
+    } else {
+      destinationMarker = new maplibregl.Marker({ color: '#dc3545' })
+        .setLngLat([lastCoord.longitude, lastCoord.latitude])
+        .addTo(map);
+    }
 
     // Fit map to show entire route
     const bounds = new maplibregl.LngLatBounds(
@@ -249,6 +363,38 @@ function updateMapRoute(): void {
       duration: 1000
     });
   }
+}
+
+// Update origin marker on map
+function updateOriginMarker(lat: number, lon: number): void {
+  if (!map || !map.loaded()) {
+    return;
+  }
+
+  const maplibregl = (window as any).maplibregl;
+
+  if (originMarker) {
+    originMarker.remove();
+  }
+  originMarker = new maplibregl.Marker({ color: '#28a745' })
+    .setLngLat([lon, lat])
+    .addTo(map);
+}
+
+// Update destination marker on map
+function updateDestinationMarker(lat: number, lon: number): void {
+  if (!map || !map.loaded()) {
+    return;
+  }
+
+  const maplibregl = (window as any).maplibregl;
+
+  if (destinationMarker) {
+    destinationMarker.remove();
+  }
+  destinationMarker = new maplibregl.Marker({ color: '#dc3545' })
+    .setLngLat([lon, lat])
+    .addTo(map);
 }
 
 // Update test position marker on map
@@ -325,23 +471,41 @@ function renderItineraryInfo(): string {
 // Render navigation info
 function renderNavigationInfo(): string {
   if (!navigationInfo) {
-    return '<p style="color: #999;">Set a test position to see navigation info</p>';
+    return '<p style="color: #999;">Set a test position on the map to see navigation info</p>';
   }
 
   return `
     <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
       <h4>Navigation Information</h4>
       <div style="margin-left: 1rem; margin-top: 0.5rem;">
-        <p><strong>Distance Remaining:</strong> ${(navigationInfo.distanceRemaining / 1000).toFixed(2)} km</p>
-        <p><strong>Time Remaining:</strong> ${Math.round(navigationInfo.timeRemaining / 60)} min</p>
-        <p><strong>Progress:</strong> ${(navigationInfo.progress * 100).toFixed(1)}%</p>
-        <p><strong>At Destination:</strong> ${navigationInfo.isAtDestination ? '✓ Yes' : '✗ No'}</p>
+        <p><strong>Traveled Distance:</strong> ${(navigationInfo.traveledDistance / 1000).toFixed(2)} km</p>
+        <p><strong>Remaining Distance:</strong> ${(navigationInfo.remainingDistance / 1000).toFixed(2)} km</p>
+        <p><strong>Traveled Percentage:</strong> ${(navigationInfo.traveledPercentage * 100).toFixed(1)}%</p>
+        <p><strong>Remaining Percentage:</strong> ${(navigationInfo.remainingPercentage * 100).toFixed(1)}%</p>
         ${navigationInfo.nextStep ? `
-          <p><strong>Next Step:</strong> ${navigationInfo.nextStep.direction || 'N/A'}</p>
+          <div style="margin-top: 0.5rem;">
+            <p><strong>Next Step:</strong></p>
+            ${'instruction' in navigationInfo.nextStep && navigationInfo.nextStep.instruction ? `<p style="margin-left: 1rem;">${navigationInfo.nextStep.instruction}</p>` : ''}
+            ${'distance' in navigationInfo.nextStep && navigationInfo.nextStep.distance ? `<p style="margin-left: 1rem;">Distance: ${(navigationInfo.nextStep.distance / 1000).toFixed(2)} km</p>` : ''}
+          </div>
         ` : ''}
-        ${navigationInfo.currentLeg ? `
-          <p><strong>Current Leg:</strong> ${navigationInfo.currentLeg.steps?.length || 0} steps</p>
+        ${navigationInfo.previousStep ? `
+          <div style="margin-top: 0.5rem;">
+            <p><strong>Previous Step:</strong></p>
+            ${'instruction' in navigationInfo.previousStep && navigationInfo.previousStep.instruction ? `<p style="margin-left: 1rem;">${navigationInfo.previousStep.instruction}</p>` : ''}
+          </div>
         ` : ''}
+        ${navigationInfo.leg ? `
+          <div style="margin-top: 0.5rem;">
+            <p><strong>Current Leg:</strong></p>
+            ${'instruction' in navigationInfo.leg && navigationInfo.leg.instruction ? `<p style="margin-left: 1rem;">${navigationInfo.leg.instruction}</p>` : ''}
+            ${navigationInfo.leg.distance ? `<p style="margin-left: 1rem;">Distance: ${(navigationInfo.leg.distance / 1000).toFixed(2)} km</p>` : ''}
+          </div>
+        ` : ''}
+        <details style="margin-top: 0.5rem;">
+          <summary style="cursor: pointer; font-weight: bold; color: #666;">Raw Navigation Data</summary>
+          <pre style="margin-top: 0.5rem; font-size: 0.875rem; overflow-x: auto; background: #f5f5f5; padding: 0.5rem; border-radius: 4px;">${JSON.stringify(navigationInfo, null, 2)}</pre>
+        </details>
       </div>
     </div>
   `;
@@ -349,33 +513,7 @@ function renderNavigationInfo(): string {
 
 // Initialize UI structure
 function initializeUIStructure(): void {
-  app.innerHTML = `
-    <div class="main-container">
-      <div class="nav-links">
-        <strong>📋 Example Pages:</strong>
-        <a href="/index.html">PositioningProvider</a>
-        <a href="/gnss-location-source.html">GnssWifiLocationSource</a>
-        <a href="/vps-location-source.html">VPSLocationSource</a>
-        <a href="/map-matching.html">MapMatching</a>
-        <a href="/map-matching-vps.html">MapMatching VPS</a>
-        <a href="/routing.html" style="font-weight: bold;">Routing</a>
-      </div>
-      <div id="content-container"></div>
-      <div class="section">
-        <h2 class="section-title">Map Visualization</h2>
-        <p style="color: #666; font-size: 0.9rem;">
-          Interactive map showing calculated route and test position
-        </p>
-        <div id="map-container" class="map-container"></div>
-        <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #666;">
-          <span style="background: #28a745; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; margin-right: 0.5rem;">●</span> Origin
-          <span style="background: #dc3545; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; margin: 0 0.5rem;">●</span> Destination
-          <span style="background: #ffc107; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; margin-left: 0.5rem;">●</span> Test Position
-        </p>
-      </div>
-    </div>
-  `;
-  
+  // HTML is now in routing.html, just get references to elements
   contentContainer = document.getElementById('content-container') as HTMLDivElement;
   mapContainer = document.getElementById('map-container') as HTMLDivElement;
 }
@@ -387,157 +525,76 @@ function updateUI(): void {
   }
   
   if (!contentContainer) return;
-  
-  const config = CoreConfig.getConfig();
-  const routingType = config?.routingType || 'osrm';
-  const routingUrl = config?.routingUrl || 'https://routing-osrm.getwemap.com';
-  const routingMode = config?.routingMode || 'walking';
-  
-  contentContainer.innerHTML = `
-    <h1 style="font-size: 1.5rem; margin: 0 0 1rem 0;">Routing Example</h1>
     
-    <div class="section" style="background: #e3f2fd;">
-      <h3 style="margin-top: 0; font-size: 1.125rem;">Core Status</h3>
-      <p style="margin: 0.5rem 0;"><strong>Initialized:</strong> <span style="color: ${coreInitialized ? '#28a745' : '#dc3545'}">${coreInitialized ? '✓ Yes' : '✗ No'}</span></p>
-      ${coreInitialized ? `
-        <p style="margin: 0.5rem 0; font-size: 0.875rem;">
-          <strong>Routing Config:</strong> Type: ${routingType}, Mode: ${routingMode}, URL: ${routingUrl}
-        </p>
-      ` : ''}
-    </div>
-
-    <div class="section">
-      <h2 class="section-title">Router</h2>
-      <p style="color: #666; font-size: 0.9rem; margin: 0.5rem 0;">
-        Initialize Router and calculate routes between two points
-      </p>
-      
-      <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
-        <div style="margin-bottom: 1rem;">
-          <div style="margin-bottom: 0.75rem;">
-            <strong>Status:</strong> <span style="color: ${router ? '#28a745' : '#dc3545'}">${router ? '● Initialized' : '○ Not Initialized'}</span>
-            ${routeError ? `
-              <div style="margin-top: 0.5rem; color: #dc3545; font-size: 0.875rem;">
-                <strong>⚠️ Error:</strong> ${routeError}
-              </div>
-            ` : ''}
-          </div>
-          <div class="button-group">
-            <button 
-              id="init-router" 
-              class="btn btn-success"
-              ${router ? 'disabled="disabled"' : ''}
-            >
-              Initialize Router
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="section">
-      <h2 class="section-title">Calculate Route</h2>
-      <p style="color: #666; font-size: 0.9rem; margin: 0.5rem 0;">
-        Calculate a route between two coordinates
-      </p>
-      
-      <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
-        <form id="route-form">
-          <div class="form-group">
-            <label>From (Latitude, Longitude)</label>
-            <div class="form-row">
-              <input type="number" id="from-lat" step="any" value="48.8566" placeholder="Latitude" />
-              <input type="number" id="from-lon" step="any" value="2.3522" placeholder="Longitude" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label>To (Latitude, Longitude)</label>
-            <div class="form-row">
-              <input type="number" id="to-lat" step="any" value="48.8606" placeholder="Latitude" />
-              <input type="number" id="to-lon" step="any" value="2.3376" placeholder="Longitude" />
-            </div>
-          </div>
-          <div class="button-group">
-            <button 
-              type="submit"
-              id="calculate-route" 
-              class="btn btn-primary"
-              ${!router || isCalculating ? 'disabled="disabled"' : ''}
-            >
-              ${isCalculating ? 'Calculating...' : 'Calculate Route'}
-            </button>
-            <button 
-              type="button"
-              id="clear-route" 
-              class="btn btn-danger"
-              ${!currentItinerary ? 'disabled="disabled"' : ''}
-            >
-              Clear Route
-            </button>
-          </div>
-        </form>
-        
-        ${renderItineraryInfo()}
-      </div>
-    </div>
-
-    <div class="section">
-      <h2 class="section-title">Navigation Utilities</h2>
-      <p style="color: #666; font-size: 0.9rem; margin: 0.5rem 0;">
-        Test Navigation utilities with a position along the route
-      </p>
-      
-      <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
-        <div class="form-group">
-          <label>Test Position (Latitude, Longitude)</label>
-          <div class="form-row">
-            <input type="number" id="test-lat" step="any" placeholder="Latitude" />
-            <input type="number" id="test-lon" step="any" placeholder="Longitude" />
-            <button 
-              type="button"
-              id="set-test-position" 
-              class="btn btn-success"
-              ${!currentItinerary ? 'disabled="disabled"' : ''}
-            >
-              Set Test Position
-            </button>
-          </div>
-        </div>
-        
-        ${renderNavigationInfo()}
-      </div>
-    </div>
-
-    <div class="info-box info-box-warning" style="margin-top: 2rem;">
-      <p><strong>💡 Routing Usage:</strong></p>
-      <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
-        <li>Initialize Router first (uses config from CoreConfig if available)</li>
-        <li>Calculate routes between two coordinates</li>
-        <li>View route information including distance, duration, and legs</li>
-        <li>Test Navigation utilities by setting a test position along the route</li>
-        <li>Navigation info shows distance remaining, progress, and next instructions</li>
-      </ul>
-      <p style="margin-top: 0.5rem;"><strong>Note:</strong> Check the browser console for detailed logs.</p>
-    </div>
-  `;
-
-  // Attach event listeners
-  const initRouterBtn = document.getElementById('init-router');
-  const clearRouteBtn = document.getElementById('clear-route');
-  const routeForm = document.getElementById('route-form');
-  const setTestPositionBtn = document.getElementById('set-test-position');
+  // Update core status
+  const coreStatusEl = document.getElementById('core-status');
+  if (coreStatusEl) {
+    coreStatusEl.textContent = coreInitialized ? '✓ Yes' : '✗ No';
+    coreStatusEl.style.color = coreInitialized ? '#28a745' : '#dc3545';
+  }
   
+  // Update router status
+  const routerStatusEl = document.getElementById('router-status');
+  if (routerStatusEl) {
+    routerStatusEl.textContent = router ? '● Initialized' : '○ Not Initialized';
+    routerStatusEl.style.color = router ? '#28a745' : '#dc3545';
+  }
+  
+  const routerErrorEl = document.getElementById('router-error');
+  const routerErrorMessageEl = document.getElementById('router-error-message');
+  if (routerErrorEl && routerErrorMessageEl) {
+    if (routeError) {
+      routerErrorEl.style.display = 'block';
+      routerErrorMessageEl.textContent = routeError;
+    } else {
+      routerErrorEl.style.display = 'none';
+    }
+  }
+  
+  // Update buttons
+  const initRouterBtn = document.getElementById('init-router') as HTMLButtonElement;
   if (initRouterBtn) {
-    initRouterBtn.onclick = handleInitRouter;
+    initRouterBtn.disabled = !!router;
+    if (!initRouterBtn.onclick) {
+      initRouterBtn.onclick = handleInitRouter;
+    }
   }
-  if (routeForm) {
-    routeForm.onsubmit = handleCalculateRoute;
+  
+  // Check if calculate button should be enabled
+  const hasValidOrigin = originPosition !== null;
+  const hasValidDestination = destinationPosition !== null;
+  
+  const calculateRouteBtn = document.getElementById('calculate-route') as HTMLButtonElement;
+  if (calculateRouteBtn) {
+    calculateRouteBtn.disabled = !router || isCalculating || !hasValidOrigin || !hasValidDestination;
+    calculateRouteBtn.textContent = isCalculating ? 'Calculating...' : 'Calculate Route';
+    if (!calculateRouteBtn.onclick) {
+      calculateRouteBtn.onclick = () => {
+        if (originPosition && destinationPosition && router) {
+          calculateRoute(originPosition, destinationPosition);
+        }
+      };
+    }
   }
+  
+  const clearRouteBtn = document.getElementById('clear-route') as HTMLButtonElement;
   if (clearRouteBtn) {
-    clearRouteBtn.onclick = handleClearRoute;
+    clearRouteBtn.disabled = !currentItinerary;
+    if (!clearRouteBtn.onclick) {
+      clearRouteBtn.onclick = handleClearRoute;
+    }
   }
-  if (setTestPositionBtn) {
-    setTestPositionBtn.onclick = handleSetTestPosition;
+  
+  // Update itinerary info
+  const itineraryInfoContainer = document.getElementById('itinerary-info-container');
+  if (itineraryInfoContainer) {
+    itineraryInfoContainer.innerHTML = renderItineraryInfo();
+  }
+  
+  // Update navigation info
+  const navigationInfoContainer = document.getElementById('navigation-info-container');
+  if (navigationInfoContainer) {
+    navigationInfoContainer.innerHTML = renderNavigationInfo();
   }
 }
 
@@ -546,58 +603,35 @@ function handleInitRouter(): void {
   initializeRouter();
 }
 
-function handleCalculateRoute(e: Event): void {
-  e.preventDefault();
-  
-  const fromLatInput = document.getElementById('from-lat') as HTMLInputElement;
-  const fromLonInput = document.getElementById('from-lon') as HTMLInputElement;
-  const toLatInput = document.getElementById('to-lat') as HTMLInputElement;
-  const toLonInput = document.getElementById('to-lon') as HTMLInputElement;
-  
-  const from = {
-    lat: parseFloat(fromLatInput.value),
-    lon: parseFloat(fromLonInput.value),
-  };
-  
-  const to = {
-    lat: parseFloat(toLatInput.value),
-    lon: parseFloat(toLonInput.value),
-  };
-  
-  if (isNaN(from.lat) || isNaN(from.lon) || isNaN(to.lat) || isNaN(to.lon)) {
-    alert('Please enter valid coordinates');
-    return;
-  }
-  
-  calculateRoute(from, to);
-}
 
 function handleClearRoute(): void {
   currentItinerary = null;
   testPosition = null;
   navigationInfo = null;
   routeError = null;
+  originPosition = null;
+  destinationPosition = null;
+  itineraryInfoManager = null;
+  
+  // Clear all markers
+  if (originMarker) {
+    originMarker.remove();
+    originMarker = null;
+  }
+  if (destinationMarker) {
+    destinationMarker.remove();
+    destinationMarker = null;
+  }
+  if (testPositionMarker) {
+    testPositionMarker.remove();
+    testPositionMarker = null;
+  }
+  
   updateUI();
   updateMapRoute();
   updateMapTestPosition();
 }
 
-function handleSetTestPosition(): void {
-  const testLatInput = document.getElementById('test-lat') as HTMLInputElement;
-  const testLonInput = document.getElementById('test-lon') as HTMLInputElement;
-  
-  const lat = parseFloat(testLatInput.value);
-  const lon = parseFloat(testLonInput.value);
-  
-  if (isNaN(lat) || isNaN(lon)) {
-    alert('Please enter valid coordinates');
-    return;
-  }
-  
-  testPosition = { lat, lon };
-  updateNavigationInfo();
-  updateUI();
-}
 
 // Initialize
 (async () => {

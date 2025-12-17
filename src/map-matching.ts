@@ -391,10 +391,13 @@ function initializeUIStructure(): void {
     <div class="main-container">
       <div class="nav-links">
         <strong>📋 Example Pages:</strong>
-        <a href="/index.html">PositioningProvider</a>
+        <a href="/index.html">Index</a>
+        <a href="/combined.html">Combined (VPS)</a>
+        <a href="/combined-gnss.html">Combined (GNSS)</a>
         <a href="/gnss-location-source.html">GnssWifiLocationSource</a>
         <a href="/vps-location-source.html">VPSLocationSource</a>
         <a href="/map-matching.html" style="font-weight: bold;">MapMatching</a>
+        <a href="/routing.html">Routing</a>
       </div>
       <div id="content-container"></div>
       <div class="section">

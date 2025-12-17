@@ -9,9 +9,6 @@ import {
   type Pose 
 } from '@wemap/positioning';
 
-// Display example info
-const app = document.querySelector<HTMLDivElement>('#app')!;
-
 // Initialize core
 const core = new CoreConfig();
 let coreInitialized = false;
@@ -114,85 +111,63 @@ function renderPose(pose: Pose): string {
 
 // Function to update the UI
 function updateUI() {
-  app.innerHTML = `
-    <div style="padding: 2rem; font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto;">
-      <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e7f3ff; border-radius: 4px; border: 1px solid #b3d9ff;">
-        <strong>📋 Example Pages:</strong>
-        <a href="/index.html" style="margin-left: 1rem; color: #0066cc;">PositioningProvider</a>
-        <a href="/vps-location-source.html" style="margin-left: 1rem; color: #0066cc;">VPSLocationSource</a>
-        <a href="/gnss-location-source.html" style="margin-left: 1rem; color: #0066cc; font-weight: bold;">GnssWifiLocationSource</a>
-      </div>
-      
-      <h1>GnssWifiLocationSource Example</h1>
-      
-      <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
-        <h3>Core Status</h3>
-        <p><strong>Initialized:</strong> <span style="color: ${coreInitialized ? '#28a745' : '#dc3545'}">${coreInitialized ? '✓ Yes' : '✗ No'}</span></p>
-        <p><strong>UI update timestamp:</strong> ${new Date().toISOString()}</p>
-      </div>
+  // Update core status
+  const coreStatusEl = document.getElementById('core-status');
+  if (coreStatusEl) {
+    coreStatusEl.textContent = coreInitialized ? '✓ Yes' : '✗ No';
+    coreStatusEl.style.color = coreInitialized ? '#28a745' : '#dc3545';
+  }
+  
+  const uiUpdateTimeEl = document.getElementById('ui-update-time');
+  if (uiUpdateTimeEl) {
+    uiUpdateTimeEl.textContent = new Date().toISOString();
+  }
 
-      <div style="background: #f5f5f5; padding: 1.5rem; border-radius: 8px; margin-top: 2rem;">
-        <h2 style="margin-top: 0;">GnssWifiLocationSource</h2>
-        <p style="color: #666; font-size: 0.9rem;">
-          Combines GNSS/WiFi + PDR (via AbsolutePositionProvider) + AbsoluteAttitude
-        </p>
-        
-        <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
-            <div>
-              <strong>Status:</strong> <span style="color: ${gnssRunning ? '#28a745' : '#dc3545'}">${gnssRunning ? '● Running' : '○ Stopped'}</span>
-              <span style="margin-left: 1rem;"><strong>Updates:</strong> ${gnssUpdateCount}</span>
-              ${gnssError ? `
-                <span style="margin-left: 1rem; color: #dc3545;">
-                  <strong>⚠️ Error:</strong> ${gnssError}
-                </span>
-              ` : ''}
-            </div>
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <button 
-                id="start-gnss-source" 
-                style="padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;"
-                ${gnssRunning ? 'disabled' : ''}
-              >
-                Start GNSS Source
-              </button>
-              <button 
-                id="stop-gnss-source" 
-                style="padding: 0.5rem 1rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;"
-                ${!gnssRunning ? 'disabled' : ''}
-              >
-                Stop GNSS Source
-              </button>
-            </div>
-          </div>
-          
-          ${renderPose(gnssPose)}
-        </div>
-      </div>
+  // Update GNSS status
+  const gnssStatusEl = document.getElementById('gnss-status');
+  if (gnssStatusEl) {
+    gnssStatusEl.textContent = gnssRunning ? '● Running' : '○ Stopped';
+    gnssStatusEl.style.color = gnssRunning ? '#28a745' : '#dc3545';
+  }
 
-      <div style="margin-top: 2rem; padding: 1rem; background: #fff3cd; border-radius: 8px; border: 1px solid #ffc107;">
-        <p><strong>💡 GnssWifiLocationSource:</strong></p>
-        <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
-          <li>Requires location permissions (GPS/WiFi)</li>
-          <li>Uses AbsolutePositionProvider which integrates GNSS/WiFi + PDR</li>
-          <li>Includes AbsoluteAttitude for device orientation</li>
-          <li>Uses PositionSmoother by default for smoother position updates</li>
-          <li>Works best outdoors or in areas with WiFi coverage</li>
-        </ul>
-        <p style="margin-top: 0.5rem;"><strong>Note:</strong> Check the browser console for detailed logs.</p>
-      </div>
-    </div>
-  `;
+  const updateCountEl = document.getElementById('update-count');
+  if (updateCountEl) {
+    updateCountEl.textContent = gnssUpdateCount.toString();
+  }
 
-  // Attach event listeners
-  const startGnssBtn = document.getElementById('start-gnss-source');
-  const stopGnssBtn = document.getElementById('stop-gnss-source');
+  // Update error display
+  const errorDisplayEl = document.getElementById('error-display');
+  const errorMessageEl = document.getElementById('error-message');
+  if (errorDisplayEl && errorMessageEl) {
+    if (gnssError) {
+      errorDisplayEl.style.display = 'inline';
+      errorMessageEl.textContent = gnssError;
+    } else {
+      errorDisplayEl.style.display = 'none';
+    }
+  }
+
+  // Update pose container
+  const poseContainerEl = document.getElementById('pose-container');
+  if (poseContainerEl) {
+    poseContainerEl.innerHTML = renderPose(gnssPose);
+  }
+
+  // Update button states
+  const startGnssBtn = document.getElementById('start-gnss-source') as HTMLButtonElement;
+  const stopGnssBtn = document.getElementById('stop-gnss-source') as HTMLButtonElement;
   
   if (startGnssBtn) {
-    startGnssBtn.onclick = handleStartGnss;
+    startGnssBtn.disabled = gnssRunning;
+    if (!startGnssBtn.onclick) {
+      startGnssBtn.onclick = handleStartGnss;
+    }
   }
   if (stopGnssBtn) {
-    stopGnssBtn.onclick = handleStopGnss;
+    stopGnssBtn.disabled = !gnssRunning;
+    if (!stopGnssBtn.onclick) {
+      stopGnssBtn.onclick = handleStopGnss;
+    }
   }
 }
 
@@ -236,15 +211,12 @@ async function handleStopGnss() {
     console.log('GnssWifiLocationSource example page initialized.');
   } catch (error) {
     console.error('Failed to initialize example page:', error);
-    app.innerHTML = `
-      <div style="padding: 2rem; font-family: system-ui, sans-serif;">
-        <h1>GnssWifiLocationSource Example</h1>
-        <div style="margin-top: 2rem; padding: 1rem; background: #f8d7da; border-radius: 8px; border: 1px solid #dc3545;">
-          <h2>Error</h2>
-          <p><strong>Failed to initialize:</strong> ${error instanceof Error ? error.message : String(error)}</p>
-        </div>
-      </div>
-    `;
+    const errorDisplayEl = document.getElementById('error-display');
+    const errorMessageEl = document.getElementById('error-message');
+    if (errorDisplayEl && errorMessageEl) {
+      errorDisplayEl.style.display = 'inline';
+      errorMessageEl.textContent = `Failed to initialize: ${error instanceof Error ? error.message : String(error)}`;
+    }
   }
 })();
 
