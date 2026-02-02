@@ -57,12 +57,13 @@ export default defineConfig({
       alias: {
         '@wemap/core': resolve(__dirname, '../../packages/core/index.ts'),
         '@wemap/positioning': resolve(__dirname, '../../packages/positioning/index.ts'),
+        '@wemap/providers': resolve(__dirname, '../../packages/providers/index.ts'),
         '@wemap/routing': resolve(__dirname, '../../packages/routing/index.ts'),
         '@wemap/camera': resolve(__dirname, '../../packages/camera/index.ts'),
       },
     },
     optimizeDeps: {
-      exclude: ['@wemap/core', '@wemap/positioning', '@wemap/routing', '@wemap/camera'],
+      exclude: ['@wemap/core', '@wemap/positioning', '@wemap/providers', '@wemap/routing', '@wemap/camera'],
     },
   }),
 });
