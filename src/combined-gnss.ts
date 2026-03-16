@@ -24,6 +24,7 @@ const mapContainer = document.getElementById('map-container') as HTMLDivElement;
 const currentLatEl = document.getElementById('current-lat') as HTMLSpanElement;
 const currentLonEl = document.getElementById('current-lon') as HTMLSpanElement;
 const currentLevelEl = document.getElementById('current-level') as HTMLSpanElement;
+const locationStateEl = document.getElementById('location-state') as HTMLSpanElement;
 const startGnssBtn = document.getElementById('start-gnss') as HTMLButtonElement;
 const startItineraryBtn = document.getElementById('start-itinerary') as HTMLButtonElement;
 const updateLevelBtn = document.getElementById('update-destination-level') as HTMLButtonElement;
@@ -90,6 +91,12 @@ gnssLocationSource.onError((error: Error) => {
   gnssError = error.message;
   updateErrorDisplay();
   console.error('[GnssWifiLocationSource] Error:', error);
+});
+
+gnssLocationSource.onLocationStateChange((state) => {
+  if (locationStateEl) {
+    locationStateEl.textContent = state;
+  }
 });
 
 // Initialize MapLibre map
