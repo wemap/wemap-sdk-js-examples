@@ -107,12 +107,12 @@ vpsLocationSource.onError((error: Error) => {
 });
 
 // Listen to scan status changes to update UI (using VPSLocationSource listeners directly)
-(vpsLocationSource as any).onScanStatusChange((status: string) => {
+vpsLocationSource.onScanStatusChange((status: string) => {
   scanStatus = status;
   updateVpsStatusDisplay();
 });
 
-(vpsLocationSource as any).onBackgroundScanStatusChange((status: string) => {
+vpsLocationSource.onBackgroundScanStatusChange((status: string) => {
   backgroundScanStatus = status;
   updateVpsStatusDisplay();
 });
@@ -697,18 +697,18 @@ async function setupCamera(): Promise<void> {
 }
 
 // Stop camera
-async function stopCamera(): Promise<void> {
-  if (camera) {
-    try {
-      await camera.stop();
-      camera.release();
-      camera = null;
-      console.log('Camera stopped and released');
-    } catch (error) {
-      console.error('Failed to stop camera:', error);
-    }
-  }
-}
+// async function stopCamera(): Promise<void> {
+//   if (camera) {
+//     try {
+//       await camera.stop();
+//       camera.release();
+//       camera = null;
+//       console.log('Camera stopped and released');
+//     } catch (error) {
+//       console.error('Failed to stop camera:', error);
+//     }
+//   }
+// }
 
 async function hideCamera(): Promise<void> {
   if (cameraContainer) {
