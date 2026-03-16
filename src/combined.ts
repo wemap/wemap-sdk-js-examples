@@ -36,6 +36,7 @@ const routeErrorMessageEl = document.getElementById('route-error-message') as HT
 const destinationInfoEl = document.getElementById('destination-info') as HTMLDivElement;
 const itineraryInfoEl = document.getElementById('itinerary-info') as HTMLDivElement;
 const navigationInfoEl = document.getElementById('navigation-info') as HTMLDivElement;
+const backgroundScanStatusEl = document.getElementById('background-scan-status') as HTMLSpanElement | null;
 
 // Initialize core
 const core = new CoreConfig();
@@ -84,19 +85,36 @@ let markerConeElement: HTMLElement | null = null;
 let routeSourceId: string | null = null;
 let mapCentered = false;
 
+// VPS status state (kept in sync via listeners)
+let scanStatus: string = 'stopped';
+let backgroundScanStatus: string = 'disabled';
+
 // Set up VPSLocationSource listeners
 vpsLocationSource.onUpdate((pose: Pose) => {
   vpsPose = pose;
   updatePositionDisplay();
   updateMapUserPosition();
   updateButtonStates();
+  updateVpsStatusDisplay();
   updateNavigationInfo();
 });
 
 vpsLocationSource.onError((error: Error) => {
   vpsError = error.message;
   updateErrorDisplay();
+  updateVpsStatusDisplay();
   console.error('[VPSLocationSource] Error:', error);
+});
+
+// Listen to scan status changes to update UI (using VPSLocationSource listeners directly)
+(vpsLocationSource as any).onScanStatusChange((status: string) => {
+  scanStatus = status;
+  updateVpsStatusDisplay();
+});
+
+(vpsLocationSource as any).onBackgroundScanStatusChange((status: string) => {
+  backgroundScanStatus = status;
+  updateVpsStatusDisplay();
 });
 
 // Initialize MapLibre map
@@ -443,6 +461,15 @@ function updateErrorDisplay(): void {
   }
 }
 
+// Update VPS / background scan status display
+function updateVpsStatusDisplay(): void {
+  if (!backgroundScanStatusEl) {
+    return;
+  }
+
+  backgroundScanStatusEl.textContent = `${scanStatus} / ${backgroundScanStatus}`;
+}
+
 // Update destination info display
 function updateDestinationInfo(): void {
   if (destinationInfoEl) {
@@ -576,6 +603,7 @@ async function handleStartVPS() {
     vpsError = null;
     updateButtonStates();
     updateErrorDisplay();
+    updateVpsStatusDisplay();
     
     // Set up camera
     if (!camera) {
@@ -595,14 +623,16 @@ async function handleStartVPS() {
 
     // Stop camera after successful scan
     if (camera) {
-      await stopCamera();
+      await hideCamera();
     }
 
     updateButtonStates();
+    updateVpsStatusDisplay();
   } catch (error) {
     vpsError = error instanceof Error ? error.message : String(error);
     updateErrorDisplay();
     updateButtonStates();
+    updateVpsStatusDisplay();
     console.error('Failed to start VPSLocationSource:', error);
     alert(`Failed to start VPSLocationSource: ${vpsError}`);
   }
@@ -677,6 +707,12 @@ async function stopCamera(): Promise<void> {
     } catch (error) {
       console.error('Failed to stop camera:', error);
     }
+  }
+}
+
+async function hideCamera(): Promise<void> {
+  if (cameraContainer) {
+    cameraContainer.style.display = 'none';
   }
 }
 
