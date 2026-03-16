@@ -27,6 +27,7 @@ const mapContainer = document.getElementById('map-container') as HTMLDivElement;
 const currentLatEl = document.getElementById('current-lat') as HTMLSpanElement;
 const currentLonEl = document.getElementById('current-lon') as HTMLSpanElement;
 const currentLevelEl = document.getElementById('current-level') as HTMLSpanElement;
+const locationStateEl = document.getElementById('location-state') as HTMLSpanElement;
 const startVpsBtn = document.getElementById('start-vps') as HTMLButtonElement;
 const startItineraryBtn = document.getElementById('start-itinerary') as HTMLButtonElement;
 const updateLevelBtn = document.getElementById('update-destination-level') as HTMLButtonElement;
@@ -97,6 +98,12 @@ vpsLocationSource.onError((error: Error) => {
   vpsError = error.message;
   updateErrorDisplay();
   console.error('[VPSLocationSource] Error:', error);
+});
+
+vpsLocationSource.onLocationStateChange((state) => {
+  if (locationStateEl) {
+    locationStateEl.textContent = state;
+  }
 });
 
 // Initialize MapLibre map
@@ -470,9 +477,7 @@ function updateItineraryInfo(): void {
 
 // Update button states
 function updateButtonStates(): void {
-  if (startVpsBtn) {
-    startVpsBtn.disabled = vpsRunning;
-  }
+
   if (startItineraryBtn) {
     startItineraryBtn.disabled = !vpsRunning || !destinationCoords || isCalculatingRoute;
     startItineraryBtn.textContent = isCalculatingRoute ? 'Calculating...' : 'Start Itinerary';
