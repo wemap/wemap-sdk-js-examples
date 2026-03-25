@@ -21,6 +21,10 @@ import {
   ItineraryInfoManager,
   type Itinerary as ItineraryType
 } from '@wemap/routing';
+import { createMapSection, type DestinationCoords } from './combined/mapSection';
+import { createInitialParamsForm, type InitialParamsConfig } from './combined/initialParamsForm';
+import { updateNavigationInfo } from './combined/navigationSection';
+import { MapMatchingHandler } from '@wemap/providers';
 
 // Get DOM elements
 const mapContainer = document.getElementById('map-container') as HTMLDivElement;
@@ -39,22 +43,85 @@ const itineraryInfoEl = document.getElementById('itinerary-info') as HTMLDivElem
 const navigationInfoEl = document.getElementById('navigation-info') as HTMLDivElement;
 const backgroundScanStatusEl = document.getElementById('background-scan-status') as HTMLSpanElement | null;
 
+const initialParamsDefaults: InitialParamsConfig = {
+  core: {
+    emmid: '30265',
+    token: 'WEMAP_TOKEN',
+  },
+  map: {
+    styleUrl: 'https://tiles.getwemap.com/styles/wemap-v2-fr.json',
+    center: { lat: 48.8566, lon: 2.3522 }, // Paris
+    zoom: 13,
+  },
+  routing: {
+    initialDestinationLevel: null,
+  },
+  locationSource: {
+    useStrict: true,
+  },
+};
+
+let initialParams: InitialParamsConfig = initialParamsDefaults;
+
 // Initialize core
 const core = new CoreConfig();
 
-try {
-  await core.init({
-    // emmid: '23270',
-    emmid: '30265',
-    token: 'WEMAP_TOKEN',
+// Mount the reusable initial params form (so `combined.html` doesn't need changes).
+const mainContainerEl = document.querySelector<HTMLDivElement>('.main-container');
+if (mainContainerEl) {
+  const paramsContainer = document.createElement('div');
+  paramsContainer.id = 'initial-params-container';
+
+  const firstSection = mainContainerEl.querySelector<HTMLElement>('.section');
+  if (firstSection) {
+    mainContainerEl.insertBefore(paramsContainer, firstSection);
+  } else {
+    mainContainerEl.appendChild(paramsContainer);
+  }
+
+  createInitialParamsForm({
+    container: paramsContainer,
+    defaults: initialParamsDefaults,
+    onApply: (config) => {
+      initialParams = config;
+
+      // Re-init core with updated credentials (best-effort).
+      void (async () => {
+        try {
+          await core.init(config.core);
+          console.log('[Core] Re-initialized with updated form params.');
+        } catch (error) {
+          console.warn('[Core] Re-initialization failed, continuing with previous state:', error);
+        }
+      })();
+
+      // Strictness affects map matching behavior globally.
+      MapMatchingHandler.useStrict = config.locationSource.useStrict;
+
+      // Update map defaults if map is already initialized.
+      mapSection?.updateMapDefaults();
+
+      // Update destination level input + state if the user already selected a destination.
+      destinationLevelInput.value = config.routing.initialDestinationLevel === null ? '' : String(config.routing.initialDestinationLevel);
+      if (destinationCoords) {
+        destinationCoords.level = config.routing.initialDestinationLevel;
+        updateDestinationInfo();
+        updateButtonStates();
+      }
+    },
   });
+}
+
+try {
+  await core.init(initialParams.core);
 } catch (error) {
   console.warn('Core initialization failed, continuing without it:', error);
 }
 
 // Create VPSLocationSource instance
 const vpsLocationSource = new VPSLocationSource({
-  usePositionSmoother: true
+  usePositionSmoother: true,
+  useStrict: initialParams.locationSource.useStrict,
 });
 
 // Create Router instance
@@ -74,21 +141,38 @@ let cameraContainer: HTMLElement | null = null;
 
 // State for Router and Map Matching
 let currentItinerary: ItineraryType | null = null;
-let destinationMarker: any = null;
 let destinationCoords: { lat: number; lon: number; level: number | null } | null = null;
 let isCalculatingRoute = false;
 let routeError: string | null = null;
 
-// Map state
-let map: any = null;
-let userMarker: any = null;
-let markerConeElement: HTMLElement | null = null;
-let routeSourceId: string | null = null;
-let mapCentered = false;
-
 // VPS status state (kept in sync via listeners)
 let scanStatus: string = 'stopped';
 let backgroundScanStatus: string = 'disabled';
+
+// Map state/behavior is encapsulated in a reusable module.
+let mapSection = createMapSection({
+  mapContainer,
+  getMapParams: () => initialParams.map,
+  getCurrentPose: () => vpsPose,
+  getCurrentItinerary: () => currentItinerary,
+  getCanPickDestination: () => {
+    if (!vpsRunning) return { ok: false, reason: 'Please start VPSLocationSource first' };
+    if (!vpsPose.position || !('latitude' in vpsPose.position)) {
+      return { ok: false, reason: 'Waiting for VPS position. Please wait for the scan to complete.' };
+    }
+    return { ok: true };
+  },
+  getDestinationLevel: () => {
+    if (!destinationLevelInput.value) return null;
+    const parsed = parseInt(destinationLevelInput.value, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  },
+  onDestinationSelected: (destination: DestinationCoords) => {
+    destinationCoords = { lat: destination.lat, lon: destination.lon, level: destination.level };
+    updateDestinationInfo();
+    updateButtonStates();
+  },
+});
 
 // Set up VPSLocationSource listeners
 vpsLocationSource.onUpdate((pose: Pose) => {
@@ -97,7 +181,12 @@ vpsLocationSource.onUpdate((pose: Pose) => {
   updateMapUserPosition();
   updateButtonStates();
   updateVpsStatusDisplay();
-  updateNavigationInfo();
+  updateNavigationInfo({
+    navigationInfoEl,
+    vpsPose: pose,
+    currentItinerary,
+    itineraryInfoManager,
+  });
 });
 
 vpsLocationSource.onError((error: Error) => {
@@ -124,97 +213,7 @@ vpsLocationSource.onLocationStateChange((state) => {
   }
 });
 
-// Initialize MapLibre map
-function initializeMap(): void {
-  if (map) {
-    return;
-  }
-
-  if (typeof (window as any).maplibregl === 'undefined') {
-    console.warn('MapLibre GL JS not loaded');
-    return;
-  }
-
-  const maplibregl = (window as any).maplibregl;
-
-  if (!mapContainer) {
-    console.warn('Map container not found');
-    return;
-  }
-
-  map = new maplibregl.Map({
-    container: mapContainer,
-    style: 'https://tiles.getwemap.com/styles/wemap-v2-fr.json',
-    center: [2.3522, 48.8566], // Paris center
-    zoom: 13
-  });
-
-  map.on('load', () => {
-    console.log('Map loaded');
-    updateMapUserPosition();
-    updateMapRoute();
-  });
-
-  // Add click handler for destination selection
-  map.on('click', (e: any) => {
-    console.log('Map clicked', { vpsRunning, hasPosition: !!vpsPose.position, mapLoaded: map.loaded() });
-    
-    // Check if map is loaded
-    if (!map.loaded()) {
-      console.warn('Map not loaded yet');
-      return;
-    }
-    
-    if (!vpsRunning) {
-      alert('Please start VPSLocationSource first');
-      return;
-    }
-    
-    if (!vpsPose.position || !('latitude' in vpsPose.position)) {
-      alert('Waiting for VPS position. Please wait for the scan to complete.');
-      return;
-    }
-
-    const { lng, lat } = e.lngLat;
-    console.log('Setting destination:', { lat, lng });
-    
-    // Get level from input if available, otherwise use null
-    const levelInput = document.getElementById('destination-level') as HTMLInputElement;
-    const level = levelInput && levelInput.value !== '' ? parseInt(levelInput.value, 10) : null;
-    setDestination(lat, lng, isNaN(level as number) ? null : level);
-  });
-  
-  // Ensure map container is clickable
-  if (mapContainer) {
-    mapContainer.style.pointerEvents = 'auto';
-    // Cursor styling is handled by CSS class 'clickable'
-  }
-}
-
-// Set destination from map click
-function setDestination(lat: number, lon: number, level: number | null = null): void {
-  destinationCoords = { lat, lon, level };
-  
-  // Update input value if level is provided
-  if (destinationLevelInput && level !== null) {
-    destinationLevelInput.value = String(level);
-  }
-  
-  const maplibregl = (window as any).maplibregl;
-  
-  // Remove existing destination marker
-  if (destinationMarker) {
-    destinationMarker.remove();
-  }
-  
-  // Add new destination marker
-  destinationMarker = new maplibregl.Marker({ color: '#dc3545' })
-    .setLngLat([lon, lat])
-    .addTo(map);
-  
-  updateDestinationInfo();
-  updateButtonStates();
-}
+// Map click + markers + route rendering are handled by `mapSection`.
 
 // Calculate route from current position to destination
 async function calculateRoute(): Promise<void> {
@@ -265,7 +264,12 @@ async function calculateRoute(): Promise<void> {
     console.log('Route calculated and set for map matching:', currentItinerary);
     updateItineraryInfo();
     updateMapRoute();
-    updateNavigationInfo();
+    updateNavigationInfo({
+      navigationInfoEl,
+      vpsPose,
+      currentItinerary,
+      itineraryInfoManager,
+    });
   } catch (error) {
     routeError = error instanceof Error ? error.message : String(error);
     console.error('Failed to calculate route:', error);
@@ -277,154 +281,13 @@ async function calculateRoute(): Promise<void> {
   }
 }
 
-// Update user position marker on map
+// Map updates are delegated to the reusable module.
 function updateMapUserPosition(): void {
-  if (!map || !map.loaded() || !vpsPose.position || !('latitude' in vpsPose.position) || !('longitude' in vpsPose.position)) {
-    return;
-  }
-
-  const lat = vpsPose.position.latitude;
-  const lon = vpsPose.position.longitude;
-
-  // Get heading from attitude if available
-  let headingDegrees: number | null = null;
-  if (vpsPose.attitude && 'headingDegrees' in vpsPose.attitude && typeof vpsPose.attitude.headingDegrees === 'number') {
-    headingDegrees = vpsPose.attitude.headingDegrees;
-  }
-
-  if (!userMarker) {
-    // Create container element for both dot and cone
-    const containerEl = document.createElement('div');
-    containerEl.classList.add('location-container');
-
-    // Create HTML element for the blue dot
-    const dotEl = document.createElement('div');
-    dotEl.classList.add('location-dot');
-
-    // Create HTML element for the heading cone
-    const coneEl = document.createElement('div');
-    coneEl.classList.add('location-compass');
-    markerConeElement = coneEl;
-
-    // Add both elements to container
-    containerEl.appendChild(coneEl);
-    containerEl.appendChild(dotEl);
-
-    // Create marker with combined HTML element
-    const maplibregl = (window as any).maplibregl;
-    userMarker = new maplibregl.Marker({ 
-      element: containerEl,
-      pitchAlignment: 'map',
-      rotationAlignment: 'map',
-      anchor: 'center'
-    })
-      .setLngLat([lon, lat])
-      .addTo(map);
-  } else {
-    // Update existing marker position
-    userMarker.setLngLat([lon, lat]);
-  }
-
-  // Update heading cone rotation if heading is available
-  if (headingDegrees !== null && markerConeElement) {
-    if (headingDegrees < 0) {
-      headingDegrees += 360;
-    }
-    
-    markerConeElement.style.transform = `rotate(${headingDegrees}deg) translate(-50%, -50%)`;
-    markerConeElement.style.display = 'block';
-  } else if (markerConeElement) {
-    markerConeElement.style.display = 'none';
-  }
-
-  // Center map on user position on first update only
-  if (!mapCentered && vpsPose.position && 'latitude' in vpsPose.position) {
-    map.flyTo({
-      center: [lon, lat],
-      duration: 1000,
-      zoom: 15
-    });
-    mapCentered = true;
-  }
+  mapSection.updateUserPosition(vpsPose);
 }
 
-// Update route on map
 function updateMapRoute(): void {
-  if (!map || !map.loaded() || !currentItinerary) {
-    // Remove route if it exists
-    if (routeSourceId && map?.getSource(routeSourceId)) {
-      if (map.getLayer('route')) {
-        map.removeLayer('route');
-      }
-      map.removeSource(routeSourceId);
-      routeSourceId = null;
-    }
-    return;
-  }
-
-  const coords = currentItinerary.coords || [];
-  if (coords.length === 0) {
-    return;
-  }
-
-  const routeCoordinates = coords.map((coord: Coordinates) => [coord.longitude, coord.latitude]);
-
-  const routeGeoJson = {
-    type: 'Feature' as const,
-    properties: {},
-    geometry: {
-      type: 'LineString' as const,
-      coordinates: routeCoordinates
-    }
-  };
-
-  // Remove existing route
-  if (routeSourceId && map.getSource(routeSourceId)) {
-    if (map.getLayer('route')) {
-      map.removeLayer('route');
-    }
-    map.removeSource(routeSourceId);
-  }
-
-  // Add new route
-  routeSourceId = 'route-source';
-  map.addSource(routeSourceId, {
-    type: 'geojson',
-    data: routeGeoJson
-  });
-
-  map.addLayer({
-    id: 'route',
-    type: 'line',
-    source: routeSourceId,
-    layout: {
-      'line-join': 'round',
-      'line-cap': 'round'
-    },
-    paint: {
-      'line-color': '#007bff',
-      'line-width': 4,
-      'line-opacity': 0.8
-    }
-  });
-
-  // Fit map to show entire route
-  if (routeCoordinates.length > 0) {
-    const maplibregl = (window as any).maplibregl;
-    const bounds = new maplibregl.LngLatBounds(
-      [coords[0].longitude, coords[0].latitude],
-      [coords[0].longitude, coords[0].latitude]
-    );
-    routeCoordinates.forEach((coord: number[]) => {
-      bounds.extend(coord as [number, number]);
-    });
-
-    const isMobile = window.innerWidth < 768;
-    map.fitBounds(bounds, {
-      padding: isMobile ? 20 : 50,
-      duration: 1000
-    });
-  }
+  mapSection.updateRoute(currentItinerary);
 }
 
 // Update position display only
@@ -511,85 +374,6 @@ function updateButtonStates(): void {
   }
   if (updateLevelBtn) {
     updateLevelBtn.disabled = !destinationCoords;
-  }
-}
-
-// Update navigation info display
-function updateNavigationInfo(): void {
-  if (!navigationInfoEl) {
-    return;
-  }
-
-  // Need both itinerary and current position
-  if (!currentItinerary || !vpsPose.position || !('latitude' in vpsPose.position)) {
-    navigationInfoEl.style.display = 'none';
-    return;
-  }
-
-  try {
-    // Create Coordinates from current position
-    const altitude = 'altitude' in vpsPose.position && typeof vpsPose.position.altitude === 'number' 
-      ? vpsPose.position.altitude 
-      : null;
-    const level = 'level' in vpsPose.position && vpsPose.position.level !== null 
-      ? vpsPose.position.level 
-      : null;
-    
-    const currentPosition = new Coordinates(
-      vpsPose.position.latitude,
-      vpsPose.position.longitude,
-      altitude,
-      level
-    );
-
-    // Get navigation info
-    const navInfo = itineraryInfoManager.getInfo(currentPosition) as any;
-
-    if (!navInfo) {
-      navigationInfoEl.style.display = 'none';
-      return;
-    }
-
-    // Display navigation info
-    navigationInfoEl.style.display = 'block';
-    
-    const distanceRemaining = navInfo.distanceRemaining !== undefined 
-      ? `${(navInfo.distanceRemaining / 1000).toFixed(2)} km` 
-      : 'N/A';
-    const timeRemaining = navInfo.timeRemaining !== undefined 
-      ? `${Math.round(navInfo.timeRemaining / 60)} min` 
-      : 'N/A';
-    const progress = navInfo.progress !== undefined 
-      ? `${(navInfo.progress * 100).toFixed(1)}%` 
-      : 'N/A';
-    const isAtDestination = navInfo.isAtDestination !== undefined 
-      ? (navInfo.isAtDestination ? 'Yes' : 'No') 
-      : 'N/A';
-
-    let html = `
-      <h4 style="margin-top: 0;">Navigation Information</h4>
-      <div style="margin-left: 1rem; margin-top: 0.5rem;">
-        <p><strong>Distance Remaining:</strong> ${distanceRemaining}</p>
-        <p><strong>Time Remaining:</strong> ${timeRemaining}</p>
-        <p><strong>Progress:</strong> ${progress}</p>
-        <p><strong>At Destination:</strong> ${isAtDestination}</p>
-    `;
-
-    if (navInfo.nextStep) {
-      const nextStepDirection = navInfo.nextStep.direction || (navInfo.nextStep as any).instruction || 'N/A';
-      html += `<p><strong>Next Step:</strong> ${nextStepDirection}</p>`;
-    }
-
-    if (navInfo.currentLeg) {
-      html += `<p><strong>Current Leg:</strong> ${navInfo.currentLeg.steps?.length || 0} steps</p>`;
-    }
-
-    html += `</div>`;
-
-    navigationInfoEl.innerHTML = html;
-  } catch (error) {
-    console.error('Failed to get navigation info:', error);
-    navigationInfoEl.style.display = 'none';
   }
 }
 
@@ -741,21 +525,16 @@ async function hideCamera(): Promise<void> {
     updateErrorDisplay();
     updateDestinationInfo();
     updateItineraryInfo();
-    updateNavigationInfo();
+    updateNavigationInfo({
+      navigationInfoEl,
+      vpsPose,
+      currentItinerary,
+      itineraryInfoManager,
+    });
     
-    // Initialize map after UI is rendered and MapLibre is loaded
+    // Initialize map after UI is rendered and MapLibre is loaded.
     setTimeout(() => {
-      if (typeof (window as any).maplibregl !== 'undefined') {
-        initializeMap();
-      } else {
-        const checkMapLibre = setInterval(() => {
-          if (typeof (window as any).maplibregl !== 'undefined') {
-            clearInterval(checkMapLibre);
-            initializeMap();
-          }
-        }, 100);
-        setTimeout(() => clearInterval(checkMapLibre), 5000);
-      }
+      mapSection.initWhenMapLibreReady().catch((err) => console.error('Map initialization failed:', err));
     }, 100);
     
     console.log('Combined features page initialized.');
