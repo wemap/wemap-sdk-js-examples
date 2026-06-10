@@ -49,6 +49,7 @@ export default defineConfig({
         routing: resolve(__dirname, 'routing.html'),
         'map-matching': resolve(__dirname, 'map-matching.html'),
         map: resolve(__dirname, 'map.html'),
+        'user-location': resolve(__dirname, 'user-location.html'),
       },
     },
   },
