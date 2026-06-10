@@ -11,9 +11,12 @@
   },
   "dependencies": {
     "@wemap/core": "^14.0.0-1",
+    "@wemap/geo": "^14.0.0-1",
+    "@wemap/map": "^14.0.0-1",
     "@wemap/positioning": "^14.0.0-1",
     "@wemap/routing": "^14.0.0-1",
-    "@wemap/camera": "^14.0.0-1"
+    "@wemap/camera": "^14.0.0-1",
+    "maplibre-gl": ">=5"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

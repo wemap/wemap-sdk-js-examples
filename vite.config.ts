@@ -48,6 +48,7 @@ export default defineConfig({
         'vps-location-source': resolve(__dirname, 'vps-location-source.html'),
         routing: resolve(__dirname, 'routing.html'),
         'map-matching': resolve(__dirname, 'map-matching.html'),
+        map: resolve(__dirname, 'map.html'),
       },
     },
   },
@@ -56,6 +57,8 @@ export default defineConfig({
     resolve: {
       alias: {
         '@wemap/core': resolve(__dirname, '../../packages/core/index.ts'),
+        '@wemap/geo': resolve(__dirname, '../../packages/geo/index.ts'),
+        '@wemap/map': resolve(__dirname, '../../packages/map/index.ts'),
         '@wemap/positioning': resolve(__dirname, '../../packages/positioning/index.ts'),
         '@wemap/providers': resolve(__dirname, '../../packages/providers/index.ts'),
         '@wemap/routing': resolve(__dirname, '../../packages/routing/index.ts'),
@@ -63,7 +66,7 @@ export default defineConfig({
       },
     },
     optimizeDeps: {
-      exclude: ['@wemap/core', '@wemap/positioning', '@wemap/providers', '@wemap/routing', '@wemap/camera'],
+      exclude: ['@wemap/core', '@wemap/geo', '@wemap/map', '@wemap/positioning', '@wemap/providers', '@wemap/routing', '@wemap/camera'],
     },
   }),
 });
