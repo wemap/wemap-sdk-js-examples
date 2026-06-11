@@ -45,7 +45,7 @@ const backgroundScanStatusEl = document.getElementById('background-scan-status')
 
 const initialParamsDefaults: InitialParamsConfig = {
   core: {
-    emmid: '30265',
+    emmid: '31668',
     token: 'WEMAP_TOKEN',
   },
   map: {

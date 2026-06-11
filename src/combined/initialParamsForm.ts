@@ -105,7 +105,7 @@ export function createInitialParamsForm(options: CreateInitialParamsFormOptions)
     <div class="form-row">
       <div>
         <label for="emmId-input">emmId</label>
-        <input id="emmId-input" name="emmId" type="text" placeholder="30265" />
+        <input id="emmId-input" name="emmId" type="text" placeholder="31668" />
       </div>
       <div>
         <label for="token-input">token</label>

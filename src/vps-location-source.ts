@@ -20,7 +20,7 @@ let coreInitialized = false;
 
 try {
   await core.init({
-    emmid: '30265',
+    emmid: '31668',
     token: 'WEMAP_TOKEN',
   });
   coreInitialized = true;

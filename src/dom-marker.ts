@@ -1,14 +1,14 @@
 /**
  * Smoke-test page for DomMarkerLayer (map-003 manual QA).
  *
- * Livemap 30265 — toolbar buttons add marker variants; bulk add stress-test.
+ * Livemap 31668 — toolbar buttons add marker variants; bulk add stress-test.
  */
 import { core, type Building } from '@wemap/core';
 import { WemapMap, DomMarkerLayer } from '@wemap/map';
 import type { DomMarkerClickEvent } from '@wemap/map';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-const EMMID = '30265';
+const EMMID = '31668';
 
 const SAMPLE_ICON =
   'data:image/svg+xml,' +

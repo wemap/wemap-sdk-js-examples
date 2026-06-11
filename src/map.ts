@@ -8,14 +8,13 @@
  *   selects the current one, and switches to its default level
  * - a floor switcher is built from the active building's levels
  *
- * The map used here is the livemap `30265` ("Carte des bureaux test"), whose
- * single building "bureaux" exposes levels 0 and 1.
+ * The map used here is livemap `31668` for examples and manual QA.
  */
 import { core, type Building } from '@wemap/core';
 import { WemapMap } from '@wemap/map';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-const EMMID = '30265';
+const EMMID = '31668';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `

@@ -1,16 +1,16 @@
 /**
  * Smoke-test page for ItineraryLayer (map-004 manual QA).
  *
- * Livemap 30265 — calculate a multilevel indoor route and switch floors.
+ * Livemap 31668 — calculate a multilevel indoor route and switch floors.
  */
 import { core, type Building } from '@wemap/core';
 import { WemapMap, ItineraryLayer } from '@wemap/map';
 import { Router, type Itinerary } from '@wemap/routing';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-const EMMID = '30265';
+const EMMID = '31668';
 
-/** Destination offset from map center (outdoor point southwest of origin on 30265). */
+/** Short offset from map center for route destination (relative, map-agnostic). */
 const DESTINATION_OFFSET = {
   dLat: 43.60901 - 43.60907,
   dLng: 3.91658 - 3.91708,

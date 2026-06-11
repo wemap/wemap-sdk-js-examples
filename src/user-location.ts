@@ -1,14 +1,14 @@
 /**
  * Smoke-test page for UserLocationLayer (map-002 manual QA).
  *
- * Livemap 30265 — simulates pose updates with buttons (no real positioning).
+ * Livemap 31668 — simulates pose updates with buttons (no real positioning).
  */
 import { core, type Building } from '@wemap/core';
 import { WemapMap, UserLocationLayer } from '@wemap/map';
 import type { UserLocationUpdate } from '@wemap/map';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-const EMMID = '30265';
+const EMMID = '31668';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `

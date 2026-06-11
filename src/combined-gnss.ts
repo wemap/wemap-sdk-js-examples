@@ -44,7 +44,7 @@ const core = new CoreConfig();
 
 const initialParamsDefaults: InitialParamsConfig = {
   core: {
-    emmid: '30265',
+    emmid: '31668',
     token: 'WEMAP_TOKEN',
   },
   map: {
