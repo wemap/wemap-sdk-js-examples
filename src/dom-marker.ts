@@ -3,8 +3,8 @@
  *
  * Livemap 30265 — toolbar buttons add marker variants; bulk add stress-test.
  */
-import { core, CoreConfig, type Building } from '@wemap/core';
-import { WemapMap, IndoorController, DomMarkerLayer } from '@wemap/map';
+import { core, type Building } from '@wemap/core';
+import { WemapMap, DomMarkerLayer } from '@wemap/map';
 import type { DomMarkerClickEvent } from '@wemap/map';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -158,17 +158,12 @@ async function main(): Promise<void> {
   setStatus('Initializing livemap…');
   await core.init({ emmid: EMMID, token: 'WEMAP_TOKEN' });
 
-  const map = new WemapMap({
-    container: 'map',
-    ...CoreConfig.getMapOptions(),
-  });
+  const map = new WemapMap({ container: 'map' });
 
   const markers = new DomMarkerLayer(map);
   markers.on('click', logClick);
 
   state = { map, markers, mapReady: false, markerCount: 0 };
-
-  const indoor = new IndoorController(map, { autoSetLevel: true });
 
   const levelButtons = new Map<number, HTMLButtonElement>();
   const setActiveLevel = (active: number | null) => {
@@ -191,7 +186,7 @@ async function main(): Promise<void> {
     updateReadout();
   });
 
-  indoor.onBuildingChange((building: Building | null) => {
+  map.onBuildingChange((building: Building | null) => {
     levelButtons.clear();
     levelsBar.replaceChildren();
 

@@ -3,8 +3,8 @@
  *
  * Livemap 30265 — calculate a multilevel indoor route and switch floors.
  */
-import { core, CoreConfig, type Building } from '@wemap/core';
-import { WemapMap, IndoorController, ItineraryLayer } from '@wemap/map';
+import { core, type Building } from '@wemap/core';
+import { WemapMap, ItineraryLayer } from '@wemap/map';
 import { Router, type Itinerary } from '@wemap/routing';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -147,17 +147,12 @@ async function main(): Promise<void> {
   setStatus('Initializing livemap…');
   await core.init({ emmid: EMMID, token: 'WEMAP_TOKEN' });
 
-  const map = new WemapMap({
-    container: 'map',
-    ...CoreConfig.getMapOptions(),
-  });
+  const map = new WemapMap({ container: 'map' });
 
   const route = new ItineraryLayer(map);
   const router = new Router();
 
   state = { map, route, router, currentItinerary: null };
-
-  const indoor = new IndoorController(map, { autoSetLevel: true });
 
   const levelButtons = new Map<number, HTMLButtonElement>();
   const setActiveLevel = (active: number | null) => {
@@ -179,7 +174,7 @@ async function main(): Promise<void> {
     updateReadout();
   });
 
-  indoor.onBuildingChange((building: Building | null) => {
+  map.onBuildingChange((building: Building | null) => {
     levelButtons.clear();
     levelsBar.replaceChildren();
 

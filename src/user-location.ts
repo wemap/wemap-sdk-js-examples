@@ -3,8 +3,8 @@
  *
  * Livemap 30265 — simulates pose updates with buttons (no real positioning).
  */
-import { core, CoreConfig, type Building } from '@wemap/core';
-import { WemapMap, IndoorController, UserLocationLayer } from '@wemap/map';
+import { core, type Building } from '@wemap/core';
+import { WemapMap, UserLocationLayer } from '@wemap/map';
 import type { UserLocationUpdate } from '@wemap/map';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -113,10 +113,7 @@ async function main(): Promise<void> {
   setStatus('Initializing livemap…');
   await core.init({ emmid: EMMID, token: 'WEMAP_TOKEN' });
 
-  const map = new WemapMap({
-    container: 'map',
-    ...CoreConfig.getMapOptions(),
-  });
+  const map = new WemapMap({ container: 'map' });
 
   const user = new UserLocationLayer(map, {
     syncLevel: true,
@@ -125,8 +122,6 @@ async function main(): Promise<void> {
   });
 
   state = { map, user, mapReady: false };
-
-  const indoor = new IndoorController(map, { autoSetLevel: true });
 
   const levelButtons = new Map<number, HTMLButtonElement>();
   const setActiveLevel = (active: number | null) => {
@@ -150,7 +145,7 @@ async function main(): Promise<void> {
     updateReadout();
   });
 
-  indoor.onBuildingChange((building: Building | null) => {
+  map.onBuildingChange((building: Building | null) => {
     levelButtons.clear();
     levelsBar.replaceChildren();
 
