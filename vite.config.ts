@@ -50,6 +50,8 @@ export default defineConfig({
         'map-matching': resolve(__dirname, 'map-matching.html'),
         map: resolve(__dirname, 'map.html'),
         'user-location': resolve(__dirname, 'user-location.html'),
+        'dom-marker': resolve(__dirname, 'dom-marker.html'),
+        itinerary: resolve(__dirname, 'itinerary.html'),
       },
     },
   },
