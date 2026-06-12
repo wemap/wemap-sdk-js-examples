@@ -21,7 +21,7 @@ import {
   ItineraryInfoManager,
   type Itinerary as ItineraryType
 } from '@wemap/routing';
-import { createMapSection, type DestinationCoords } from './combined/mapSection';
+import { ExampleMapStack, type DestinationCoords } from './shared/ExampleMapStack';
 import { createInitialParamsForm, type InitialParamsConfig } from './combined/initialParamsForm';
 import { updateNavigationInfo } from './combined/navigationSection';
 import { MapMatchingHandler } from '@wemap/providers';
@@ -47,11 +47,6 @@ const initialParamsDefaults: InitialParamsConfig = {
   core: {
     emmid: '31668',
     token: 'WEMAP_TOKEN',
-  },
-  map: {
-    styleUrl: 'https://tiles.getwemap.com/styles/wemap-v2-fr.json',
-    center: { lat: 48.8566, lon: 2.3522 }, // Paris
-    zoom: 13,
   },
   routing: {
     initialDestinationLevel: null,
@@ -83,28 +78,29 @@ if (mainContainerEl) {
     container: paramsContainer,
     defaults: initialParamsDefaults,
     onApply: (config) => {
+      const emmidChanged = config.core.emmid !== initialParams.core.emmid;
       initialParams = config;
 
-      // Re-init core with updated credentials (best-effort).
+      MapMatchingHandler.useStrict = config.locationSource.useStrict;
+
       void (async () => {
         try {
           await core.init(config.core);
           console.log('[Core] Re-initialized with updated form params.');
+
+          if (emmidChanged) {
+            resetMapStackAndState();
+          }
         } catch (error) {
           console.warn('[Core] Re-initialization failed, continuing with previous state:', error);
         }
       })();
 
-      // Strictness affects map matching behavior globally.
-      MapMatchingHandler.useStrict = config.locationSource.useStrict;
-
-      // Update map defaults if map is already initialized.
-      mapSection?.updateMapDefaults();
-
-      // Update destination level input + state if the user already selected a destination.
-      destinationLevelInput.value = config.routing.initialDestinationLevel === null ? '' : String(config.routing.initialDestinationLevel);
+      destinationLevelInput.value =
+        config.routing.initialDestinationLevel === null ? '' : String(config.routing.initialDestinationLevel);
       if (destinationCoords) {
         destinationCoords.level = config.routing.initialDestinationLevel;
+        mapStack.setDestination(destinationCoords.lat, destinationCoords.lon, destinationCoords.level);
         updateDestinationInfo();
         updateButtonStates();
       }
@@ -128,7 +124,7 @@ const vpsLocationSource = new VPSLocationSource({
 const router = new Router();
 
 // Create ItineraryInfoManager instance
-const itineraryInfoManager = new ItineraryInfoManager();
+let itineraryInfoManager = new ItineraryInfoManager();
 
 // State for VPSLocationSource
 let vpsPose: Pose = {};
@@ -149,30 +145,51 @@ let routeError: string | null = null;
 let scanStatus: string = 'stopped';
 let backgroundScanStatus: string = 'disabled';
 
-// Map state/behavior is encapsulated in a reusable module.
-let mapSection = createMapSection({
-  mapContainer,
-  getMapParams: () => initialParams.map,
-  getCurrentPose: () => vpsPose,
-  getCurrentItinerary: () => currentItinerary,
-  getCanPickDestination: () => {
-    if (!vpsRunning) return { ok: false, reason: 'Please start VPSLocationSource first' };
-    if (!vpsPose.position || !('latitude' in vpsPose.position)) {
-      return { ok: false, reason: 'Waiting for VPS position. Please wait for the scan to complete.' };
-    }
-    return { ok: true };
-  },
-  getDestinationLevel: () => {
-    if (!destinationLevelInput.value) return null;
-    const parsed = parseInt(destinationLevelInput.value, 10);
-    return Number.isFinite(parsed) ? parsed : null;
-  },
-  onDestinationSelected: (destination: DestinationCoords) => {
-    destinationCoords = { lat: destination.lat, lon: destination.lon, level: destination.level };
-    updateDestinationInfo();
-    updateButtonStates();
-  },
-});
+function createMapStack(): ExampleMapStack {
+  return new ExampleMapStack({
+    container: mapContainer,
+    followOnFirstFix: true,
+    getDestinationClickGuard: () => {
+      if (!vpsRunning) return { ok: false, reason: 'Please start VPSLocationSource first' };
+      if (!vpsPose.position || !('latitude' in vpsPose.position)) {
+        return { ok: false, reason: 'Waiting for VPS position. Please wait for the scan to complete.' };
+      }
+      return { ok: true };
+    },
+    getDestinationLevel: () => {
+      if (!destinationLevelInput.value) return null;
+      const parsed = parseInt(destinationLevelInput.value, 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    },
+    onDestinationClick: (destination: DestinationCoords) => {
+      destinationCoords = { lat: destination.lat, lon: destination.lng, level: destination.level };
+      updateDestinationInfo();
+      updateButtonStates();
+    },
+  });
+}
+
+function resetMapStackAndState(): void {
+  mapStack.destroy();
+  currentItinerary = null;
+  MapMatching.clearItinerary();
+  itineraryInfoManager = new ItineraryInfoManager();
+  destinationCoords = null;
+  routeError = null;
+  mapStack = createMapStack();
+  updateDestinationInfo();
+  updateItineraryInfo();
+  updateNavigationInfo({
+    navigationInfoEl,
+    vpsPose,
+    currentItinerary,
+    itineraryInfoManager,
+  });
+  updateButtonStates();
+  updateErrorDisplay();
+}
+
+let mapStack = createMapStack();
 
 // Set up VPSLocationSource listeners
 vpsLocationSource.onUpdate((pose: Pose) => {
@@ -213,7 +230,7 @@ vpsLocationSource.onLocationStateChange((state) => {
   }
 });
 
-// Map click + markers + route rendering are handled by `mapSection`.
+// Map click, markers, and route rendering are handled by ExampleMapStack.
 
 // Calculate route from current position to destination
 async function calculateRoute(): Promise<void> {
@@ -281,13 +298,16 @@ async function calculateRoute(): Promise<void> {
   }
 }
 
-// Map updates are delegated to the reusable module.
 function updateMapUserPosition(): void {
-  mapSection.updateUserPosition(vpsPose);
+  mapStack.updatePose(vpsPose);
 }
 
 function updateMapRoute(): void {
-  mapSection.updateRoute(currentItinerary);
+  if (currentItinerary) {
+    mapStack.setRoute(currentItinerary);
+  } else {
+    mapStack.clearRoute();
+  }
 }
 
 // Update position display only
@@ -447,6 +467,7 @@ function handleUpdateDestinationLevel() {
   }
 
   destinationCoords.level = isNaN(level as number) ? null : level;
+  mapStack.setDestination(destinationCoords.lat, destinationCoords.lon, destinationCoords.level);
   updateDestinationInfo();
 }
 
@@ -531,11 +552,6 @@ async function hideCamera(): Promise<void> {
       currentItinerary,
       itineraryInfoManager,
     });
-    
-    // Initialize map after UI is rendered and MapLibre is loaded.
-    setTimeout(() => {
-      mapSection.initWhenMapLibreReady().catch((err) => console.error('Map initialization failed:', err));
-    }, 100);
     
     console.log('Combined features page initialized.');
   } catch (error) {

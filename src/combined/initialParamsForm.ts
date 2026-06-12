@@ -3,14 +3,6 @@ export type InitialParamsConfig = {
     emmid: string;
     token: string;
   };
-  map: {
-    styleUrl: string;
-    center: {
-      lat: number;
-      lon: number;
-    };
-    zoom: number;
-  };
   routing: {
     /**
      * Optional initial destination level.
@@ -67,11 +59,11 @@ export function createInitialParamsForm(options: CreateInitialParamsFormOptions)
     'background:#fff;border-radius:8px;max-width:900px;width:100%;' +
     'box-shadow:0 10px 40px rgba(0,0,0,0.25);overflow:auto;';
   backdropEl.appendChild(modalEl);
-  // Append to body so it overlays the whole page regardless of container placement.
   document.body.appendChild(backdropEl);
 
   const headerEl = document.createElement('div');
-  headerEl.style.cssText = 'padding:0.75rem 1rem;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;';
+  headerEl.style.cssText =
+    'padding:0.75rem 1rem;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;';
   modalEl.appendChild(headerEl);
 
   const titleEl = document.createElement('h3');
@@ -112,30 +104,11 @@ export function createInitialParamsForm(options: CreateInitialParamsFormOptions)
         <input id="token-input" name="token" type="password" placeholder="WEMAP_TOKEN" />
       </div>
     </div>
+    <p style="margin:0.5rem 0 0;font-size:0.875rem;color:#666;">
+      Map style, center, and zoom come from the livemap snippet after <code>core.init()</code>.
+    </p>
   `;
   fieldsWrap.appendChild(coreGroup);
-
-  const mapGroup = document.createElement('div');
-  mapGroup.className = 'form-group';
-  mapGroup.innerHTML = `
-    <label for="mapStyleUrl-input">Map style URL</label>
-    <input id="mapStyleUrl-input" name="mapStyleUrl" type="text" placeholder="https://tiles.getwemap.com/styles/wemap-v2-fr.json" />
-    <div class="form-row" style="margin-top: 0.5rem;">
-      <div>
-        <label for="centerLat-input">Center latitude</label>
-        <input id="centerLat-input" name="centerLat" type="number" step="0.000001" />
-      </div>
-      <div>
-        <label for="centerLon-input">Center longitude</label>
-        <input id="centerLon-input" name="centerLon" type="number" step="0.000001" />
-      </div>
-    </div>
-    <div style="margin-top: 0.5rem;">
-      <label for="zoom-input">Zoom</label>
-      <input id="zoom-input" name="zoom" type="number" step="0.1" />
-    </div>
-  `;
-  fieldsWrap.appendChild(mapGroup);
 
   const routingGroup = document.createElement('div');
   routingGroup.className = 'form-group';
@@ -176,20 +149,12 @@ export function createInitialParamsForm(options: CreateInitialParamsFormOptions)
 
   const emmIdInput = formEl.querySelector<HTMLInputElement>('#emmId-input')!;
   const tokenInput = formEl.querySelector<HTMLInputElement>('#token-input')!;
-  const mapStyleUrlInput = formEl.querySelector<HTMLInputElement>('#mapStyleUrl-input')!;
-  const centerLatInput = formEl.querySelector<HTMLInputElement>('#centerLat-input')!;
-  const centerLonInput = formEl.querySelector<HTMLInputElement>('#centerLon-input')!;
-  const zoomInput = formEl.querySelector<HTMLInputElement>('#zoom-input')!;
   const initialDestinationLevelInput = formEl.querySelector<HTMLInputElement>('#initialDestinationLevel-input')!;
   const useStrictInput = formEl.querySelector<HTMLInputElement>('#useStrict-input')!;
 
   function setConfig(config: InitialParamsConfig) {
     emmIdInput.value = config.core.emmid;
     tokenInput.value = config.core.token;
-    mapStyleUrlInput.value = config.map.styleUrl;
-    centerLatInput.value = String(config.map.center.lat);
-    centerLonInput.value = String(config.map.center.lon);
-    zoomInput.value = String(config.map.zoom);
     initialDestinationLevelInput.value =
       config.routing.initialDestinationLevel === null ? '' : String(config.routing.initialDestinationLevel);
     useStrictInput.checked = config.locationSource.useStrict;
@@ -198,10 +163,6 @@ export function createInitialParamsForm(options: CreateInitialParamsFormOptions)
   function getConfig(): InitialParamsConfig {
     const emmid = emmIdInput.value.trim();
     const token = tokenInput.value.trim();
-    const styleUrl = mapStyleUrlInput.value.trim();
-    const centerLat = Number(centerLatInput.value);
-    const centerLon = Number(centerLonInput.value);
-    const zoom = Number(zoomInput.value);
     const initialDestinationLevel = parseOptionalNumber(initialDestinationLevelInput.value);
 
     if (!emmIdInput.value.trim()) {
@@ -210,23 +171,9 @@ export function createInitialParamsForm(options: CreateInitialParamsFormOptions)
     if (!token) {
       throw new Error('token is required');
     }
-    if (!styleUrl) {
-      throw new Error('Map style URL is required');
-    }
-    if (!Number.isFinite(centerLat) || !Number.isFinite(centerLon)) {
-      throw new Error('Center latitude/longitude must be valid numbers');
-    }
-    if (!Number.isFinite(zoom)) {
-      throw new Error('Zoom must be a valid number');
-    }
 
     return {
       core: { emmid, token },
-      map: {
-        styleUrl,
-        center: { lat: centerLat, lon: centerLon },
-        zoom,
-      },
       routing: {
         initialDestinationLevel,
       },
@@ -247,7 +194,6 @@ export function createInitialParamsForm(options: CreateInitialParamsFormOptions)
 
   function openModal() {
     backdropEl.style.display = 'flex';
-    // Prevent background scroll while modal is open.
     document.body.style.overflow = 'hidden';
     emmIdInput.focus();
   }
@@ -280,4 +226,3 @@ export function createInitialParamsForm(options: CreateInitialParamsFormOptions)
     },
   };
 }
-

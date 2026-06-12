@@ -5,10 +5,11 @@ This directory contains interactive examples demonstrating the features and capa
 ## Overview
 
 These examples showcase various aspects of the Wemap SDK including:
+- **@wemap/map**: Snippet-driven maps, indoor levels, user location, DOM markers, routes, POI interaction
 - **Location Sources**: GNSS/WiFi and VPS (Visual Positioning System) positioning
 - **Map Matching**: Projecting user positions onto routes for accurate navigation
 - **Routing**: Route calculation, itinerary management, and navigation
-- **Combined Features**: Integration of multiple SDK features in unified interfaces
+- **Combined Features**: End-to-end `@wemap/map` integration with positioning and routing
 
 ## Getting Started
 
@@ -94,10 +95,10 @@ Example demonstrating routing and navigation features including:
 
 ### 🔄 Combined Features
 
-#### Combined Features (VPS)
+#### Combined Features (VPS) — primary `@wemap/map` integration demo
 **File**: `combined.html`
 
-Test VPS location source, routing, and navigation features together in a unified interface. This comprehensive example includes:
+Test VPS location source, routing, and navigation with `WemapMap`, `UserLocationLayer`, `DomMarkerLayer`, and `ItineraryLayer` via the shared `ExampleMapStack` helper. This comprehensive example includes:
 - VPS location tracking
 - Route calculation
 - Map matching integration
@@ -138,6 +139,7 @@ Replace `YOUR_MAP_ID` and `YOUR_TOKEN` with your actual Wemap credentials.
 ├── *.html                  # Individual example pages
 ├── src/
 │   ├── *.ts               # TypeScript source files for each example
+│   └── shared/            # ExampleMapStack — shared @wemap/map wiring
 ├── styles.css             # Shared styles
 ├── package.json           # Dependencies and scripts
 ├── package-lock.json      # Dependency lock file
@@ -150,6 +152,7 @@ Replace `YOUR_MAP_ID` and `YOUR_TOKEN` with your actual Wemap credentials.
 These examples utilize the following Wemap SDK packages:
 
 - **@wemap/core**: Core SDK initialization and configuration
+- **@wemap/map**: Map wrapper, indoor levels, user location, markers, routes, POI interaction
 - **@wemap/positioning**: Location sources and map matching
 - **@wemap/routing**: Route calculation and navigation
 - **@wemap/camera**: Camera access for VPS features

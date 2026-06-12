@@ -19,7 +19,7 @@ import {
   ItineraryInfoManager,
   type Itinerary as ItineraryType
 } from '@wemap/routing';
-import { createMapSection, type DestinationCoords } from './combined/mapSection';
+import { ExampleMapStack, type DestinationCoords } from './shared/ExampleMapStack';
 import { createInitialParamsForm, type InitialParamsConfig } from './combined/initialParamsForm';
 import { updateNavigationInfo as renderNavigationInfo } from './combined/navigationSection';
 import { MapMatchingHandler } from '@wemap/providers';
@@ -47,11 +47,6 @@ const initialParamsDefaults: InitialParamsConfig = {
     emmid: '31668',
     token: 'WEMAP_TOKEN',
   },
-  map: {
-    styleUrl: 'https://tiles.getwemap.com/styles/wemap-v2-fr.json',
-    center: { lat: 48.8566, lon: 2.3522 }, // Paris
-    zoom: 13,
-  },
   routing: {
     initialDestinationLevel: null,
   },
@@ -62,7 +57,6 @@ const initialParamsDefaults: InitialParamsConfig = {
 
 let initialParams: InitialParamsConfig = initialParamsDefaults;
 
-let mapSection: ReturnType<typeof createMapSection> | null = null;
 
 // Mount the reusable initial params form (so `combined-gnss.html` doesn't need changes).
 const mainContainerEl = document.querySelector<HTMLDivElement>('.main-container');
@@ -81,29 +75,30 @@ if (mainContainerEl) {
     container: paramsContainer,
     defaults: initialParamsDefaults,
     onApply: (config) => {
+      const emmidChanged = config.core.emmid !== initialParams.core.emmid;
       initialParams = config;
 
       MapMatchingHandler.useStrict = config.locationSource.useStrict;
 
-      // Re-init core with updated credentials (best-effort).
       void (async () => {
         try {
           await core.init(config.core);
           console.log('[Core] Re-initialized with updated form params.');
+
+          if (emmidChanged) {
+            resetMapStackAndState();
+          }
         } catch (error) {
           console.warn('[Core] Re-initialization failed, continuing with previous state:', error);
         }
       })();
 
-      // Update map defaults if map is already initialized.
-      mapSection?.updateMapDefaults();
-
-      // Update destination level input + state if the user already selected a destination.
       destinationLevelInput.value =
         config.routing.initialDestinationLevel === null ? '' : String(config.routing.initialDestinationLevel);
 
       if (destinationCoords) {
         destinationCoords.level = config.routing.initialDestinationLevel;
+        mapStack.setDestination(destinationCoords.lat, destinationCoords.lon, destinationCoords.level);
         updateDestinationInfo();
         updateButtonStates();
       }
@@ -128,7 +123,7 @@ const gnssLocationSource = new GnssWifiLocationSource({
 const router = new Router();
 
 // Create ItineraryInfoManager instance
-const itineraryInfoManager = new ItineraryInfoManager();
+let itineraryInfoManager = new ItineraryInfoManager();
 
 // State for GnssWifiLocationSource
 let gnssPose: Pose = {};
@@ -141,27 +136,44 @@ let destinationCoords: { lat: number; lon: number; level: number | null } | null
 let isCalculatingRoute = false;
 let routeError: string | null = null;
 
-mapSection = createMapSection({
-  mapContainer,
-  getMapParams: () => initialParams.map,
-  getCurrentPose: () => gnssPose,
-  getCurrentItinerary: () => currentItinerary,
-  getCanPickDestination: () => {
-    if (!gnssRunning) return { ok: false, reason: 'Please start GNSS Location Source first' };
-    if (!gnssPose.position || !('latitude' in gnssPose.position)) {
-      return { ok: false, reason: 'Waiting for GNSS position. Please wait for location to be acquired.' };
-    }
-    return { ok: true };
-  },
-  getDestinationLevel: () => {
-    if (!destinationLevelInput.value) return null;
-    const parsed = parseInt(destinationLevelInput.value, 10);
-    return Number.isFinite(parsed) ? parsed : null;
-  },
-  onDestinationSelected: (destination: DestinationCoords) => {
-    setDestination(destination.lat, destination.lon, destination.level);
-  },
-});
+function createMapStack(): ExampleMapStack {
+  return new ExampleMapStack({
+    container: mapContainer,
+    followOnFirstFix: true,
+    getDestinationClickGuard: () => {
+      if (!gnssRunning) return { ok: false, reason: 'Please start GNSS Location Source first' };
+      if (!gnssPose.position || !('latitude' in gnssPose.position)) {
+        return { ok: false, reason: 'Waiting for GNSS position. Please wait for location to be acquired.' };
+      }
+      return { ok: true };
+    },
+    getDestinationLevel: () => {
+      if (!destinationLevelInput.value) return null;
+      const parsed = parseInt(destinationLevelInput.value, 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    },
+    onDestinationClick: (destination: DestinationCoords) => {
+      setDestination(destination.lat, destination.lng, destination.level);
+    },
+  });
+}
+
+function resetMapStackAndState(): void {
+  mapStack.destroy();
+  currentItinerary = null;
+  MapMatching.clearItinerary();
+  itineraryInfoManager = new ItineraryInfoManager();
+  destinationCoords = null;
+  routeError = null;
+  mapStack = createMapStack();
+  updateDestinationInfo();
+  updateItineraryInfo();
+  updateNavigationInfo();
+  updateButtonStates();
+  updateErrorDisplay();
+}
+
+let mapStack = createMapStack();
 
 // Set up GnssWifiLocationSource listeners
 gnssLocationSource.onUpdate((pose: Pose) => {
@@ -183,13 +195,6 @@ gnssLocationSource.onLocationStateChange((state) => {
     locationStateEl.textContent = state;
   }
 });
-
-// Initialize MapLibre map
-function initializeMap(): void {
-  if (!mapSection) return;
-  // Delegate map creation/click handling to the reusable module.
-  mapSection.initWhenMapLibreReady().catch((err) => console.error('Map initialization failed:', err));
-}
 
 // Set destination from map click
 function setDestination(lat: number, lon: number, level: number | null = null): void {
@@ -261,12 +266,15 @@ async function calculateRoute(): Promise<void> {
 
 // Update user position marker on map
 function updateMapUserPosition(): void {
-  mapSection?.updateUserPosition(gnssPose);
+  mapStack.updatePose(gnssPose);
 }
 
-// Update route on map
 function updateMapRoute(): void {
-  mapSection?.updateRoute(currentItinerary);
+  if (currentItinerary) {
+    mapStack.setRoute(currentItinerary);
+  } else {
+    mapStack.clearRoute();
+  }
 }
 
 // Update position display only
@@ -407,6 +415,7 @@ function handleUpdateDestinationLevel() {
   }
 
   destinationCoords.level = isNaN(level as number) ? null : level;
+  mapStack.setDestination(destinationCoords.lat, destinationCoords.lon, destinationCoords.level);
   updateDestinationInfo();
 }
 
@@ -431,21 +440,6 @@ function handleUpdateDestinationLevel() {
     updateDestinationInfo();
     updateItineraryInfo();
     updateNavigationInfo();
-    
-    // Initialize map after UI is rendered and MapLibre is loaded
-    setTimeout(() => {
-      if (typeof (window as any).maplibregl !== 'undefined') {
-        initializeMap();
-      } else {
-        const checkMapLibre = setInterval(() => {
-          if (typeof (window as any).maplibregl !== 'undefined') {
-            clearInterval(checkMapLibre);
-            initializeMap();
-          }
-        }, 100);
-        setTimeout(() => clearInterval(checkMapLibre), 5000);
-      }
-    }, 100);
     
     console.log('Combined features (GNSS) page initialized.');
   } catch (error) {

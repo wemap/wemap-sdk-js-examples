@@ -9,11 +9,12 @@ import {
   MapMatching,
   type Pose
 } from '@wemap/positioning';
-import { 
+import {
   Itinerary,
   type Itinerary as ItineraryType,
-  Coordinates
+  Coordinates,
 } from '@wemap/routing';
+import { ExampleMapStack } from './shared/ExampleMapStack';
 
 // Display example info
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -50,11 +51,7 @@ let gnssError: string | null = null;
 let currentItinerary: ItineraryType | null = null;
 let itineraryInfo: string = 'No itinerary set';
 
-// Map state
-let map: any = null; // MapLibre map instance
-let userMarker: any = null; // User position HTML marker (contains dot + cone)
-let markerConeElement: HTMLElement | null = null; // Reference to cone element for rotation
-let itinerarySourceId: string | null = null; // Itinerary route source ID
+let mapStack: ExampleMapStack | null = null;
 
 // Set up GnssWifiLocationSource listeners
 gnssWifiLocationSource.onUpdate((pose: Pose) => {
@@ -189,200 +186,38 @@ function createAndSetItinerary(from: { lat: number; lon: number }, to: { lat: nu
   }
 }
 
-// Initialize MapLibre map
 function initializeMap(): void {
-  if (map) {
-    return; // Map already initialized
-  }
-
-  // Check if MapLibre is available
-  if (typeof (window as any).maplibregl === 'undefined') {
-    console.warn('MapLibre GL JS not loaded');
+  if (mapStack || !mapContainer) {
     return;
   }
 
-  const maplibregl = (window as any).maplibregl;
-
-  if (!mapContainer) {
-    console.warn('Map container not found');
-    return;
-  }
-
-  map = new maplibregl.Map({
+  mapStack = new ExampleMapStack({
     container: mapContainer,
-    style: 'https://tiles.getwemap.com/styles/wemap-v2-fr.json', // Default style
-    center: [2.3522, 48.8566], // Paris center
-    zoom: 13
+    followOnFirstFix: true,
   });
 
-  map.on('load', () => {
+  mapStack.wemapMap.on('load', () => {
     console.log('Map loaded');
-    // Update map with current data if available
     updateMapUserPosition();
     updateMapItinerary();
   });
 }
 
-// Update user position marker on map
 function updateMapUserPosition(): void {
-  if (!map || !map.loaded() || !gnssPose.position || !('latitude' in gnssPose.position) || !('longitude' in gnssPose.position)) {
-    return;
-  }
-
-  const lat = gnssPose.position.latitude;
-  const lon = gnssPose.position.longitude;
-
-  // Get heading from attitude if available
-  let heading: number | null = null;
-  // let heading = 0;
-  if (gnssPose.attitude && 'heading' in gnssPose.attitude && typeof gnssPose.attitude.heading === 'number') {
-    heading = gnssPose.attitude.heading;
-  }
-
-  if (!userMarker) {
-    // Create container element for both dot and cone
-    const containerEl = document.createElement('div');
-    containerEl.classList.add('location-container');
-
-    // Create HTML element for the blue dot
-    const dotEl = document.createElement('div');
-    dotEl.classList.add('location-dot');
-
-    // Create HTML element for the heading cone
-    const coneEl = document.createElement('div');
-    coneEl.classList.add('location-compass');
-    
-    // Store reference to cone element for rotation updates
-    markerConeElement = coneEl;
-
-    // Add both elements to container
-    containerEl.appendChild(coneEl);
-    containerEl.appendChild(dotEl);
-
-    // Create marker with combined HTML element
-    const maplibregl = (window as any).maplibregl;
-    userMarker = new maplibregl.Marker({ 
-      element: containerEl,
-      pitchAlignment: 'map',
-      rotationAlignment: 'map',
-      anchor: 'center' // Anchor at center of the combined element
-    })
-      .setLngLat([lon, lat])
-      .addTo(map);
-  } else {
-    // Update existing marker position
-    userMarker.setLngLat([lon, lat]);
-  }
-
-  // Update heading cone rotation if heading is available
-  if (heading !== null && markerConeElement) {
-    // Convert heading to degrees if needed
-    // If heading is > 2*PI, assume it's already in degrees, otherwise convert from radians
-    let headingDegrees: number;
-    if (heading > 2 * Math.PI) {
-      // Already in degrees
-      headingDegrees = heading % 360;
-    } else {
-      // Convert from radians to degrees
-      headingDegrees = (heading * 180 / Math.PI) % 360;
-    }
-    
-    markerConeElement.style.transform = `rotate(${headingDegrees}deg) translate(-50%, -50%)`;
-    
-    // Show cone if it was hidden
-    markerConeElement.style.display = 'block';
-  } else if (markerConeElement) {
-    // Hide cone if no heading data
-    markerConeElement.style.display = 'none';
-  }
-
-  // Center map on user position if it's the first update
-  if (gnssUpdateCount === 1) {
-    map.flyTo({
-      center: [lon, lat],
-      duration: 1000,
-      zoom: 15
-    });
-  }
+  mapStack?.updatePose(gnssPose);
 }
 
-// Update itinerary route on map
 function updateMapItinerary(): void {
-  if (!map || !map.loaded() || !currentItinerary) {
-    // Remove itinerary if it exists
-    if (itinerarySourceId && map.getSource(itinerarySourceId)) {
-      if (map.getLayer('itinerary-route')) {
-        map.removeLayer('itinerary-route');
-      }
-      map.removeSource(itinerarySourceId);
-      itinerarySourceId = null;
-    }
+  if (!mapStack) {
     return;
   }
 
-  // Get coordinates from itinerary
-  const coords = currentItinerary.coords || [];
-  if (coords.length === 0) {
+  if (!currentItinerary) {
+    mapStack.clearRoute();
     return;
   }
 
-  // Convert Coordinates to [lon, lat] format for GeoJSON
-  const routeCoordinates = coords.map((coord: Coordinates) => [coord.longitude, coord.latitude]);
-
-  const routeGeoJson = {
-    type: 'Feature' as const,
-    properties: {},
-    geometry: {
-      type: 'LineString' as const,
-      coordinates: routeCoordinates
-    }
-  };
-
-  // Remove existing route if it exists
-  if (itinerarySourceId && map.getSource(itinerarySourceId)) {
-    if (map.getLayer('itinerary-route')) {
-      map.removeLayer('itinerary-route');
-    }
-    map.removeSource(itinerarySourceId);
-  }
-
-  // Add new route
-  itinerarySourceId = 'itinerary-route-source';
-  map.addSource(itinerarySourceId, {
-    type: 'geojson',
-    data: routeGeoJson
-  });
-
-  map.addLayer({
-    id: 'itinerary-route',
-    type: 'line',
-    source: itinerarySourceId,
-    layout: {
-      'line-join': 'round',
-      'line-cap': 'round'
-    },
-    paint: {
-      'line-color': '#007bff',
-      'line-width': 4,
-      'line-opacity': 0.8
-    }
-  });
-
-  // Fit map to show entire route
-  if (routeCoordinates.length > 0) {
-    const maplibregl = (window as any).maplibregl;
-    const bounds = new maplibregl.LngLatBounds(routeCoordinates[0] as [number, number], routeCoordinates[0] as [number, number]);
-    routeCoordinates.forEach((coord: number[]) => {
-      bounds.extend(coord as [number, number]);
-    });
-
-    // Responsive padding for mobile vs desktop
-    const isMobile = window.innerWidth < 768;
-    map.fitBounds(bounds, {
-      padding: isMobile ? 20 : 50,
-      duration: 1000
-    });
-  }
+  mapStack.setRoute(currentItinerary);
 }
 
 // Initialize UI structure (called once)
@@ -611,23 +446,8 @@ function handleClearItinerary() {
     // Initial UI render
     updateUI();
     
-    // Initialize map after UI is rendered and MapLibre is loaded
-    setTimeout(() => {
-      if (typeof (window as any).maplibregl !== 'undefined') {
-        initializeMap();
-      } else {
-        // Wait for MapLibre to load
-        const checkMapLibre = setInterval(() => {
-          if (typeof (window as any).maplibregl !== 'undefined') {
-            clearInterval(checkMapLibre);
-            initializeMap();
-          }
-        }, 100);
-        // Stop checking after 5 seconds
-        setTimeout(() => clearInterval(checkMapLibre), 5000);
-      }
-    }, 100);
-    
+    initializeMap();
+
     console.log('MapMatching example page initialized.');
   } catch (error) {
     console.error('Failed to initialize example page:', error);

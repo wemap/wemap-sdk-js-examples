@@ -4,13 +4,15 @@
  * Demonstrates Router, route calculation, itinerary management, and Navigation utilities
  */
 import { CoreConfig } from '@wemap/core';
-import { 
+import {
   Router,
   Coordinates,
   ItineraryInfoManager,
   type Itinerary as ItineraryType,
   type ItineraryInfo,
 } from '@wemap/routing';
+import maplibregl from 'maplibre-gl';
+import { ExampleMapStack } from './shared/ExampleMapStack';
 
 // Display example info
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -45,12 +47,7 @@ let itineraryInfoManager: ItineraryInfoManager | null = null;
 let originPosition: { lat: number; lon: number } | null = null;
 let destinationPosition: { lat: number; lon: number } | null = null;
 
-// Map state
-let map: any = null;
-let routeSourceId: string | null = null;
-let originMarker: any = null;
-let destinationMarker: any = null;
-let testPositionMarker: any = null;
+let mapStack: ExampleMapStack | null = null;
 let router: Router | null = null;
 
 // Initialize Router
@@ -130,134 +127,101 @@ function updateNavigationInfo(): void {
   }
 }
 
-// Initialize MapLibre map
 function initializeMap(): void {
-  if (map) {
+  if (mapStack || !mapContainer) {
     return;
   }
 
-  if (typeof (window as any).maplibregl === 'undefined') {
-    console.warn('MapLibre GL JS not loaded');
-    return;
-  }
-
-  const maplibregl = (window as any).maplibregl;
-
-  if (!mapContainer) {
-    console.warn('Map container not found');
-    return;
-  }
-
-  map = new maplibregl.Map({
+  mapStack = new ExampleMapStack({
     container: mapContainer,
-    style: 'https://tiles.getwemap.com/styles/wemap-v2-fr.json',
-    center: [2.3522, 48.8566], // Paris center
-    zoom: 13
+    followOnFirstFix: false,
   });
+
+  const map = mapStack.wemapMap.map;
+  let popup: maplibregl.Popup | null = null;
 
   map.on('load', () => {
     console.log('Map loaded');
     updateMapRoute();
     updateMapTestPosition();
-    
-    // Update markers from stored positions if they exist
-    if (originPosition && map && map.loaded()) {
+
+    if (originPosition) {
       updateOriginMarker(originPosition.lat, originPosition.lon);
     }
-    
-    if (destinationPosition && map && map.loaded()) {
+
+    if (destinationPosition) {
       updateDestinationMarker(destinationPosition.lat, destinationPosition.lon);
     }
   });
 
-  // Add click handler for map interactions with popup
-  let popup: any = null;
-  
-  map.on('click', (e: any) => {
+  map.on('click', (e) => {
     const lng = e.lngLat.lng;
     const lat = e.lngLat.lat;
-    
-    // Remove existing popup if any
+
     if (popup) {
       popup.remove();
     }
-    
-    const maplibregl = (window as any).maplibregl;
-    
-    // Create popup content with buttons
+
     const popupContent = document.createElement('div');
     popupContent.style.padding = '10px';
     popupContent.style.minWidth = '150px';
-    
+
     const title = document.createElement('div');
     title.textContent = 'Select point type:';
     title.style.fontWeight = 'bold';
     title.style.marginBottom = '10px';
     popupContent.appendChild(title);
-    
+
     const buttonContainer = document.createElement('div');
     buttonContainer.style.display = 'flex';
     buttonContainer.style.flexDirection = 'column';
     buttonContainer.style.gap = '5px';
-    
-    // Create buttons for each option
+
     const createButton = (text: string, onClick: () => void) => {
       const btn = document.createElement('button');
       btn.textContent = text;
-      btn.style.padding = '8px 12px';
-      btn.style.border = 'none';
-      btn.style.borderRadius = '4px';
-      btn.style.cursor = 'pointer';
-      btn.style.backgroundColor = '#007bff';
-      btn.style.color = 'white';
-      btn.style.fontSize = '14px';
+      btn.style.cssText =
+        'padding:8px 12px;border:none;border-radius:4px;cursor:pointer;background:#007bff;color:white;font-size:14px';
       btn.onclick = () => {
         onClick();
-        if (popup) {
-          popup.remove();
-          popup = null;
-        }
+        popup?.remove();
+        popup = null;
       };
       return btn;
     };
-    
-    // Add "Set as Origin" button
-    const originBtn = createButton('Set as Origin', () => {
-      originPosition = { lat, lon: lng };
-      console.log('Origin set from map click:', { lat, lng });
-      updateOriginMarker(lat, lng);
-      updateUI(); // Update button states
-    });
-    buttonContainer.appendChild(originBtn);
-    
-    // Add "Set as Destination" button
-    const destinationBtn = createButton('Set as Destination', () => {
-      destinationPosition = { lat, lon: lng };
-      console.log('Destination set from map click:', { lat, lng });
-      updateDestinationMarker(lat, lng);
-      updateUI(); // Update button states
-      
-      // If origin is set and router is initialized, calculate route automatically
-      if (originPosition && router) {
-        calculateRoute(originPosition, destinationPosition);
-      }
-    });
-    buttonContainer.appendChild(destinationBtn);
-    
-    // Add "Set as Test Position" button (only if route exists)
-    if (currentItinerary) {
-      const testBtn = createButton('Set as Test Position', () => {
-        testPosition = { lat, lon: lng };
-        updateNavigationInfo();
+
+    buttonContainer.appendChild(
+      createButton('Set as Origin', () => {
+        originPosition = { lat, lon: lng };
+        updateOriginMarker(lat, lng);
         updateUI();
-        console.log('Test position set from map click:', { lat, lng });
-      });
-      buttonContainer.appendChild(testBtn);
+      })
+    );
+
+    buttonContainer.appendChild(
+      createButton('Set as Destination', () => {
+        destinationPosition = { lat, lon: lng };
+        updateDestinationMarker(lat, lng);
+        updateUI();
+
+        if (originPosition && router) {
+          calculateRoute(originPosition, destinationPosition);
+        }
+      })
+    );
+
+    if (currentItinerary) {
+      buttonContainer.appendChild(
+        createButton('Set as Test Position', () => {
+          testPosition = { lat, lon: lng };
+          updateNavigationInfo();
+          updateUI();
+        })
+      );
     }
-    
+
     popupContent.appendChild(buttonContainer);
-    
-    // Create and add popup to map
+
     popup = new maplibregl.Popup({ closeOnClick: true })
       .setLngLat([lng, lat])
       .setDOMContent(popupContent)
@@ -265,157 +229,52 @@ function initializeMap(): void {
   });
 }
 
-// Update route on map
+function syncRouteEndpointMarkers(itinerary: ItineraryType): void {
+  const coords = itinerary.coords ?? [];
+
+  if (!coords.length || !mapStack) {
+    return;
+  }
+
+  const first = coords[0];
+  const last = coords[coords.length - 1];
+  mapStack.setOrigin(first.latitude, first.longitude, first.level);
+  mapStack.setDestination(last.latitude, last.longitude, last.level);
+}
+
 function updateMapRoute(): void {
-  if (!map || !map.loaded() || !currentItinerary) {
-    // Remove route if it exists
-    if (routeSourceId && map?.getSource(routeSourceId)) {
-      if (map.getLayer('route')) {
-        map.removeLayer('route');
-      }
-      map.removeSource(routeSourceId);
-      routeSourceId = null;
-    }
+  if (!mapStack) {
     return;
   }
 
-  const coords = currentItinerary.coords || [];
-  if (coords.length === 0) {
+  if (!currentItinerary) {
+    mapStack.clearRoute();
     return;
   }
 
-  const routeCoordinates = coords.map((coord: Coordinates) => [coord.longitude, coord.latitude]);
-
-  const routeGeoJson = {
-    type: 'Feature' as const,
-    properties: {},
-    geometry: {
-      type: 'LineString' as const,
-      coordinates: routeCoordinates
-    }
-  };
-
-  // Remove existing route
-  if (routeSourceId && map.getSource(routeSourceId)) {
-    if (map.getLayer('route')) {
-      map.removeLayer('route');
-    }
-    map.removeSource(routeSourceId);
-  }
-
-  // Add new route
-  routeSourceId = 'route-source';
-  map.addSource(routeSourceId, {
-    type: 'geojson',
-    data: routeGeoJson
-  });
-
-  map.addLayer({
-    id: 'route',
-    type: 'line',
-    source: routeSourceId,
-    layout: {
-      'line-join': 'round',
-      'line-cap': 'round'
-    },
-    paint: {
-      'line-color': '#007bff',
-      'line-width': 4,
-      'line-opacity': 0.8
-    }
-  });
-
-  // Add origin and destination markers (only update if they don't exist or route changed)
-  if (coords.length > 0) {
-    const maplibregl = (window as any).maplibregl;
-    
-    // Origin marker - update position to match route start
-    if (originMarker) {
-      originMarker.setLngLat([coords[0].longitude, coords[0].latitude]);
-    } else {
-      originMarker = new maplibregl.Marker({ color: '#28a745' })
-        .setLngLat([coords[0].longitude, coords[0].latitude])
-        .addTo(map);
-    }
-
-    // Destination marker - update position to match route end
-    const lastCoord = coords[coords.length - 1];
-    if (destinationMarker) {
-      destinationMarker.setLngLat([lastCoord.longitude, lastCoord.latitude]);
-    } else {
-      destinationMarker = new maplibregl.Marker({ color: '#dc3545' })
-        .setLngLat([lastCoord.longitude, lastCoord.latitude])
-        .addTo(map);
-    }
-
-    // Fit map to show entire route
-    const bounds = new maplibregl.LngLatBounds(
-      [coords[0].longitude, coords[0].latitude],
-      [coords[0].longitude, coords[0].latitude]
-    );
-    routeCoordinates.forEach((coord: number[]) => {
-      bounds.extend(coord as [number, number]);
-    });
-
-    const isMobile = window.innerWidth < 768;
-    map.fitBounds(bounds, {
-      padding: isMobile ? 20 : 50,
-      duration: 1000
-    });
-  }
+  mapStack.setRoute(currentItinerary);
+  syncRouteEndpointMarkers(currentItinerary);
 }
 
-// Update origin marker on map
 function updateOriginMarker(lat: number, lon: number): void {
-  if (!map || !map.loaded()) {
-    return;
-  }
-
-  const maplibregl = (window as any).maplibregl;
-
-  if (originMarker) {
-    originMarker.remove();
-  }
-  originMarker = new maplibregl.Marker({ color: '#28a745' })
-    .setLngLat([lon, lat])
-    .addTo(map);
+  mapStack?.setOrigin(lat, lon);
 }
 
-// Update destination marker on map
 function updateDestinationMarker(lat: number, lon: number): void {
-  if (!map || !map.loaded()) {
-    return;
-  }
-
-  const maplibregl = (window as any).maplibregl;
-
-  if (destinationMarker) {
-    destinationMarker.remove();
-  }
-  destinationMarker = new maplibregl.Marker({ color: '#dc3545' })
-    .setLngLat([lon, lat])
-    .addTo(map);
+  mapStack?.setDestination(lat, lon);
 }
 
-// Update test position marker on map
 function updateMapTestPosition(): void {
-  if (!map || !map.loaded() || !testPosition) {
-    if (testPositionMarker) {
-      testPositionMarker.remove();
-      testPositionMarker = null;
-    }
+  if (!mapStack) {
     return;
   }
 
-  const maplibregl = (window as any).maplibregl;
-
-  if (!testPositionMarker) {
-    testPositionMarker = new maplibregl.Marker({ color: '#ffc107' })
-      .setLngLat([testPosition.lon, testPosition.lat])
-      .addTo(map);
-  } else {
-    testPositionMarker.setLngLat([testPosition.lon, testPosition.lat]);
+  if (!testPosition) {
+    mapStack.clearTestPosition();
+    return;
   }
+
+  mapStack.setTestPosition(testPosition.lat, testPosition.lon);
 }
 
 // Render itinerary information
@@ -612,21 +471,8 @@ function handleClearRoute(): void {
   originPosition = null;
   destinationPosition = null;
   itineraryInfoManager = null;
-  
-  // Clear all markers
-  if (originMarker) {
-    originMarker.remove();
-    originMarker = null;
-  }
-  if (destinationMarker) {
-    destinationMarker.remove();
-    destinationMarker = null;
-  }
-  if (testPositionMarker) {
-    testPositionMarker.remove();
-    testPositionMarker = null;
-  }
-  
+
+  mapStack?.clearMarkers();
   updateUI();
   updateMapRoute();
   updateMapTestPosition();
@@ -639,21 +485,8 @@ function handleClearRoute(): void {
     initializeUIStructure();
     updateUI();
     
-    // Initialize map after UI is rendered and MapLibre is loaded
-    setTimeout(() => {
-      if (typeof (window as any).maplibregl !== 'undefined') {
-        initializeMap();
-      } else {
-        const checkMapLibre = setInterval(() => {
-          if (typeof (window as any).maplibregl !== 'undefined') {
-            clearInterval(checkMapLibre);
-            initializeMap();
-          }
-        }, 100);
-        setTimeout(() => clearInterval(checkMapLibre), 5000);
-      }
-    }, 100);
-    
+    initializeMap();
+
     console.log('Routing example page initialized.');
   } catch (error) {
     console.error('Failed to initialize example page:', error);
