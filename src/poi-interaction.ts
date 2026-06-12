@@ -116,7 +116,7 @@ async function main(): Promise<void> {
       levelsBar.append(btn);
     }
 
-    setActive(map.getLevel());
+    setActive(map?.getLevel() ?? null);
   });
 
   document.querySelector('#btn-highlight')!.addEventListener('click', () => {
