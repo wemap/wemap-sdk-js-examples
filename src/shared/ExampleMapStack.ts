@@ -49,7 +49,9 @@ export function poseToUserLocationUpdate(pose: Pose): UserLocationUpdate | null 
     position: {
       lat: position.latitude,
       lng: position.longitude,
-      ...('level' in position && position.level != null ? { level: position.level } : {}),
+      ...('level' in position && typeof position.level === 'number'
+        ? { level: position.level }
+        : {}),
     },
   };
 
