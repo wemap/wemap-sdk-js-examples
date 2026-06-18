@@ -116,7 +116,6 @@ async function main(): Promise<void> {
   const map = new WemapMap({ container: 'map' });
 
   const user = new UserLocationLayer(map, {
-    syncLevel: true,
     showHeading: true,
     followOnFirstFix: true,
   });

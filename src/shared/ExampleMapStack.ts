@@ -1,8 +1,8 @@
 /**
  * Shared @wemap/map wiring for positioning + routing example pages (map-007).
  *
- * Browse mode (no route): building context drives the floor; pose does not sync level.
- * Navigation mode (route set): pose drives the floor via UserLocationLayer.syncLevel.
+ * Level sync is automatic inside WemapMap — building selection and pose updates
+ * drive the floor without integrator configuration.
  */
 import type { Pose } from '@wemap/positioning';
 import type { Itinerary } from '@wemap/routing';
@@ -68,20 +68,16 @@ export class ExampleMapStack {
   private readonly unsubscribeMapClick: (() => void) | null;
 
   private hasFitRouteBounds = false;
-  private inNavigationMode = false;
 
   constructor(options: ExampleMapStackOptions) {
     this.wemapMap = new WemapMap({ container: options.container });
 
     this.user = new UserLocationLayer(this.wemapMap, {
-      syncLevel: false,
       followOnFirstFix: options.followOnFirstFix ?? true,
       showHeading: true,
     });
     this.markers = new DomMarkerLayer(this.wemapMap);
     this.route = new ItineraryLayer(this.wemapMap);
-
-    this.wemapMap.setIndoorAutoSetLevel(true);
 
     if (options.onDestinationClick) {
       const handler = (event: MapMouseEvent) => {
@@ -100,7 +96,7 @@ export class ExampleMapStack {
         };
 
         this.setDestination(destination.lat, destination.lng, destination.level);
-        options.onDestinationClick(destination);
+        options.onDestinationClick?.(destination);
       };
 
       this.wemapMap.on('click', handler);
@@ -119,10 +115,6 @@ export class ExampleMapStack {
   }
 
   setRoute(itinerary: Itinerary): void {
-    if (!this.inNavigationMode) {
-      this.enterNavigationMode();
-    }
-
     const fitBounds = !this.hasFitRouteBounds;
     this.route.set(itinerary, fitBounds ? { fitBounds: true } : undefined);
 
@@ -134,10 +126,6 @@ export class ExampleMapStack {
   clearRoute(): void {
     this.route.clear();
     this.hasFitRouteBounds = false;
-
-    if (this.inNavigationMode) {
-      this.exitNavigationMode();
-    }
   }
 
   setDestination(lat: number, lng: number, level: number | null = null): void {
@@ -180,17 +168,5 @@ export class ExampleMapStack {
     this.markers.destroy();
     this.user.destroy();
     this.wemapMap.remove();
-  }
-
-  private enterNavigationMode(): void {
-    this.inNavigationMode = true;
-    this.wemapMap.setIndoorAutoSetLevel(false);
-    this.user.setSyncLevel(true);
-  }
-
-  private exitNavigationMode(): void {
-    this.inNavigationMode = false;
-    this.user.setSyncLevel(false);
-    this.wemapMap.setIndoorAutoSetLevel(true);
   }
 }
