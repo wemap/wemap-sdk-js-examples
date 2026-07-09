@@ -5,11 +5,12 @@ This directory contains interactive examples demonstrating the features and capa
 ## Overview
 
 These examples showcase various aspects of the Wemap SDK including:
-- **@wemap/map**: Snippet-driven maps, indoor levels, user location, DOM markers, routes, POI interaction
+- **@wemap/map**: Snippet-driven maps, indoor levels, and end-to-end navigation via `ExampleMapStack`
 - **Location Sources**: GNSS/WiFi and VPS (Visual Positioning System) positioning
 - **Map Matching**: Projecting user positions onto routes for accurate navigation
 - **Routing**: Route calculation, itinerary management, and navigation
-- **Combined Features**: End-to-end `@wemap/map` integration with positioning and routing
+
+Internal smoke-test harnesses (per-feature manual QA) live in [`apps/debug`](../debug/README.md) and are not published to integrators.
 
 ## Getting Started
 
@@ -117,6 +118,19 @@ Test GNSS location source, routing, and navigation features together in a unifie
 - Complete outdoor navigation solution
 
 **Use Case**: Complete outdoor navigation solution
+
+### 🗺️ Map basics
+
+#### Map & Indoor Levels
+**File**: `map.html`
+
+Demonstrates `WemapMap` with snippet-driven style, bounds, and indoor floor switching via `setLevel` / `onBuildingChange`.
+
+**Use Case**: Getting started with `@wemap/map`
+
+## Debug harnesses (internal)
+
+Per-feature smoke pages (`user-location`, `dom-marker`, `itinerary`, `poi-interaction`, `content-search`) were moved to [`apps/debug`](../debug/README.md) for SDK manual QA. They are not synced to the public examples repository.
 
 ## Configuration
 

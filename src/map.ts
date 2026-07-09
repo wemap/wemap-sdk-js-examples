@@ -1,80 +1,196 @@
 /**
- * Example page for the @wemap/map package
+ * Integrator-facing showcase for the @wemap/map package.
  *
- * Demonstrates the WemapMap wrapper with snippet-driven indoor:
- * - map parameters (style, bounds, zoom range, …) come from the livemap snippet
- *   via @wemap/core
- * - when `indoor.enable` is true, the map fetches buildings for the viewport,
- *   selects the current one, and switches to its default level
- * - a floor switcher is built from the active building's levels
- *
- * The map used here is livemap `31668` for examples and manual QA.
+ * Features shown on one page:
+ * - WemapMap creation from snippet defaults (`core.init` + `new WemapMap`)
+ * - camera helpers (`setCenter`, `setZoom`, `flyTo`, `fitBounds`)
+ * - indoor level API (`onBuildingChange`, `setLevel`, `onLevelChange`)
+ * - runtime source/layer helpers (`addSource`, `addLayer`, `registerIndoorLayer`)
+ * - POI state APIs (`onPoiClick`, `setPoiHighlighted`, `setPoiSelected`, `setPoiVisible`)
+ * - viewport pinpoints stream (`onViewportPinpointsChange`)
  */
 import { core, type Building } from '@wemap/core';
+import { BoundingBox, Coordinates } from '@wemap/geo';
 import { WemapMap } from '@wemap/map';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 const EMMID = '31668';
+const CUSTOM_SOURCE_ID = 'example-level-areas';
+const CUSTOM_LAYER_ID = 'example-level-areas-fill';
+const SAMPLE_POI_IDS = [93929221, 90494242, 89151273];
+
+const CUSTOM_LAYER_DATA = {
+  type: 'FeatureCollection' as const,
+  features: [
+    {
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Polygon' as const,
+        coordinates: [
+          [
+            [3.9168, 43.6093],
+            [3.9175, 43.6093],
+            [3.9175, 43.6088],
+            [3.9168, 43.6088],
+            [3.9168, 43.6093],
+          ],
+        ],
+      },
+      properties: { level: '0' },
+    },
+    {
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Polygon' as const,
+        coordinates: [
+          [
+            [3.9170, 43.6092],
+            [3.9177, 43.6092],
+            [3.9177, 43.6087],
+            [3.9170, 43.6087],
+            [3.9170, 43.6092],
+          ],
+        ],
+      },
+      properties: { level: '1' },
+    },
+    {
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Polygon' as const,
+        coordinates: [
+          [
+            [3.9165, 43.6091],
+            [3.9172, 43.6091],
+            [3.9172, 43.6086],
+            [3.9165, 43.6086],
+            [3.9165, 43.6091],
+          ],
+        ],
+      },
+      properties: { min_level: 0, max_level: 1, level: '0;1' },
+    },
+  ],
+};
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <div class="main-container">
-    <h1>@wemap/map — Indoor levels</h1>
-    <p>Livemap <strong>${EMMID}</strong>. Buildings & levels follow the map as it moves (snippet <code>indoor.enable</code>).</p>
+    <h1>@wemap/map — Feature showcase</h1>
+    <p>Livemap <strong>${EMMID}</strong>. One page demonstrating the core map APIs integrators use most.</p>
+
+    <div id="camera-controls" class="section" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+      <strong>Camera</strong>
+      <button type="button" id="btn-reset-view">Reset view</button>
+      <button type="button" id="btn-fly-paris">Fly to Paris center</button>
+      <button type="button" id="btn-fit-demo">Fit demo bounds</button>
+      <button type="button" id="btn-zoom-in">Zoom +1</button>
+      <button type="button" id="btn-zoom-out">Zoom -1</button>
+    </div>
+
     <div id="levels" class="section" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
       <span>No building in view</span>
     </div>
-    <div id="map" style="width:100%;height:70vh;border-radius:8px;margin-top:1rem"></div>
+
+    <div id="poi-controls" class="section" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+      <strong>POI state</strong>
+      <button type="button" id="btn-highlight-sample">Highlight sample IDs</button>
+      <button type="button" id="btn-select-sample">Select sample IDs</button>
+      <button type="button" id="btn-visible-sample">Show sample IDs only</button>
+      <button type="button" id="btn-visible-all">Show all</button>
+      <button type="button" id="btn-clear-poi-state">Clear POI state</button>
+    </div>
+
+    <div id="layer-controls" class="section" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+      <strong>Runtime layers</strong>
+      <button type="button" id="btn-add-indoor-layer" disabled>Add indoor demo layer</button>
+      <button type="button" id="btn-toggle-indoor-layer" disabled>Toggle layer visibility</button>
+    </div>
+
+    <div id="map" style="width:100%;height:64vh;border-radius:8px;margin-top:1rem"></div>
+
     <p id="readout" style="margin-top:.5rem;color:#4a5568;font-size:.875rem"></p>
+    <p id="poi-click-log" style="margin-top:.25rem;color:#1a365d;font-size:.875rem;font-family:monospace;white-space:pre-wrap"></p>
+    <pre id="pinpoints-log"></pre>
   </div>
 `;
 
 const levelsBar = document.querySelector<HTMLDivElement>('#levels')!;
-const readout = document.querySelector<HTMLDivElement>('#readout')!;
+const readout = document.querySelector<HTMLParagraphElement>('#readout')!;
+const poiClickLog = document.querySelector<HTMLParagraphElement>('#poi-click-log')!;
+const pinpointsLog = document.querySelector<HTMLPreElement>('#pinpoints-log')!;
+const btnResetView = document.querySelector<HTMLButtonElement>('#btn-reset-view')!;
+const btnFlyParis = document.querySelector<HTMLButtonElement>('#btn-fly-paris')!;
+const btnFitDemo = document.querySelector<HTMLButtonElement>('#btn-fit-demo')!;
+const btnZoomIn = document.querySelector<HTMLButtonElement>('#btn-zoom-in')!;
+const btnZoomOut = document.querySelector<HTMLButtonElement>('#btn-zoom-out')!;
+const btnHighlightSample = document.querySelector<HTMLButtonElement>('#btn-highlight-sample')!;
+const btnSelectSample = document.querySelector<HTMLButtonElement>('#btn-select-sample')!;
+const btnVisibleSample = document.querySelector<HTMLButtonElement>('#btn-visible-sample')!;
+const btnVisibleAll = document.querySelector<HTMLButtonElement>('#btn-visible-all')!;
+const btnClearPoiState = document.querySelector<HTMLButtonElement>('#btn-clear-poi-state')!;
+const btnAddIndoorLayer = document.querySelector<HTMLButtonElement>('#btn-add-indoor-layer')!;
+const btnToggleIndoorLayer = document.querySelector<HTMLButtonElement>('#btn-toggle-indoor-layer')!;
 
 async function main(): Promise<void> {
-  // Fetch + parse the livemap snippet; map parameters come straight from it.
   await core.init({ emmid: EMMID, token: 'WEMAP_TOKEN' });
-
   const map = new WemapMap({ container: 'map' });
+  await map.whenReady();
 
-  // Camera readout on every move.
+  btnAddIndoorLayer.disabled = false;
+  btnToggleIndoorLayer.disabled = false;
+
+  const initialCenter = map.getCenter();
+  const initialZoom = map.getZoom();
+  let indoorLayerVisible = true;
+
   const updateReadout = () => {
     const c = map.getCenter();
-    readout.textContent =
-      `center: ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)} · zoom: ${map.getZoom().toFixed(1)} · level: ${map.getLevel() ?? '—'}`;
+    const highlighted = map.getPoiHighlighted();
+    const selected = map.getPoiSelected();
+    const visible = map.getPoiVisible();
+    readout.textContent = [
+      `center: ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`,
+      `zoom: ${map.getZoom().toFixed(1)}`,
+      `level: ${map.getLevel() ?? '—'}`,
+      `highlighted: [${highlighted.join(', ') || '—'}]`,
+      `selected: [${selected.join(', ') || '—'}]`,
+      `visible: ${
+        visible === null ? 'all' : visible.length ? `[${visible.join(', ')}]` : '[]'
+      }`,
+    ].join(' · ');
   };
-  map.on('move', updateReadout);
-  map.on('load', updateReadout);
 
-  // Highlight the active level button as the level changes.
-  const buttons = new Map<number, HTMLButtonElement>();
-  const setActive = (active: number | null) => {
-    for (const [lvl, btn] of buttons) {
+  const levelButtons = new Map<number, HTMLButtonElement>();
+  const setActiveLevel = (active: number | null) => {
+    for (const [lvl, btn] of levelButtons) {
       btn.style.background = lvl === active ? '#007bff' : '#fff';
       btn.style.color = lvl === active ? '#fff' : '#1a202c';
     }
   };
+
   map.onLevelChange((level) => {
-    setActive(level);
+    setActiveLevel(level);
     updateReadout();
   });
+  map.on('move', updateReadout);
+  map.on('load', updateReadout);
 
-  // Rebuild the floor switcher whenever the active building changes.
   map.onBuildingChange((building: Building | null) => {
-    buttons.clear();
+    levelButtons.clear();
     levelsBar.replaceChildren();
 
-    if (!building || !building.levels.length) {
+    if (!building?.levels.length) {
       levelsBar.append(
         Object.assign(document.createElement('span'), { textContent: 'No building in view' })
       );
-
       return;
     }
 
     levelsBar.append(
-      Object.assign(document.createElement('span'), { textContent: `${building.name} — level:` })
+      Object.assign(document.createElement('span'), {
+        textContent: `${building.name} — level:`,
+      })
     );
 
     for (const lvl of [...building.levels].sort((a, b) => b.level - a.level)) {
@@ -83,11 +199,114 @@ async function main(): Promise<void> {
       btn.style.cssText =
         'padding:.4rem .8rem;border:1px solid #cbd5e0;border-radius:4px;cursor:pointer;background:#fff';
       btn.addEventListener('click', () => map.setLevel(lvl.level));
-      buttons.set(lvl.level, btn);
+      levelButtons.set(lvl.level, btn);
       levelsBar.append(btn);
     }
 
-    setActive(map.getLevel());
+    setActiveLevel(map.getLevel());
+  });
+
+  map.onPoiClick((event) => {
+    poiClickLog.textContent = [
+      `POI click`,
+      `id: ${event.pinpoint.id}`,
+      `name: ${event.pinpoint.name}`,
+      `externalId: ${event.externalId ?? '—'}`,
+      `lngLat: ${event.lngLat.lat.toFixed(5)}, ${event.lngLat.lng.toFixed(5)}`,
+    ].join('\n');
+  });
+
+  map.onViewportPinpointsChange(({ pinpoints, trigger }) => {
+    const preview = pinpoints
+      .slice(0, 8)
+      .map((p) => `#${p.id} · ${p.name} · level ${p.level ?? '—'}`);
+    pinpointsLog.textContent = [
+      `Viewport pinpoints (${trigger}) -> ${pinpoints.length} item(s)`,
+      ...preview,
+      ...(pinpoints.length > preview.length
+        ? [`... and ${pinpoints.length - preview.length} more`]
+        : []),
+    ].join('\n');
+  });
+
+  btnResetView.addEventListener('click', () => {
+    map.setCenter(initialCenter);
+    map.setZoom(initialZoom);
+  });
+  btnFlyParis.addEventListener('click', () => {
+    map.flyTo({ center: [2.3522, 48.8566], zoom: 16.5, duration: 1200 });
+  });
+  btnFitDemo.addEventListener('click', () => {
+    map.fitBounds(
+      new BoundingBox(new Coordinates(48.8618, 2.361), new Coordinates(48.8528, 2.343))
+    );
+  });
+  btnZoomIn.addEventListener('click', () => map.setZoom(map.getZoom() + 1));
+  btnZoomOut.addEventListener('click', () => map.setZoom(Math.max(0, map.getZoom() - 1)));
+
+  btnHighlightSample.addEventListener('click', () => {
+    map.setPoiHighlighted(SAMPLE_POI_IDS);
+    updateReadout();
+  });
+  btnSelectSample.addEventListener('click', () => {
+    map.setPoiSelected(SAMPLE_POI_IDS);
+    updateReadout();
+  });
+  btnVisibleSample.addEventListener('click', () => {
+    map.setPoiVisible(SAMPLE_POI_IDS);
+    updateReadout();
+  });
+  btnVisibleAll.addEventListener('click', () => {
+    map.setPoiVisible(null);
+    updateReadout();
+  });
+  btnClearPoiState.addEventListener('click', () => {
+    map.setPoiHighlighted([]);
+    map.setPoiSelected([]);
+    map.setPoiVisible(null);
+    updateReadout();
+  });
+
+  btnAddIndoorLayer.addEventListener('click', async () => {
+    await map.whenReady();
+
+    map.addSource(CUSTOM_SOURCE_ID, {
+      type: 'geojson',
+      data: CUSTOM_LAYER_DATA,
+    });
+
+    map.addLayer(
+      {
+        id: CUSTOM_LAYER_ID,
+        type: 'fill',
+        source: CUSTOM_SOURCE_ID,
+        paint: {
+          'fill-color': '#7c3aed',
+          'fill-opacity': 0.25,
+          'fill-outline-color': '#5b21b6',
+        },
+      },
+      { indoor: true }
+    );
+
+    const currentLevel = map.getLevel();
+    if (currentLevel !== null) {
+      map.setLevel(currentLevel);
+    }
+  });
+
+  btnToggleIndoorLayer.addEventListener('click', () => {
+    const layer = map.map.getLayer(CUSTOM_LAYER_ID);
+    if (!layer) {
+      return;
+    }
+
+    indoorLayerVisible = !indoorLayerVisible;
+    map.map.setLayoutProperty(
+      CUSTOM_LAYER_ID,
+      'visibility',
+      indoorLayerVisible ? 'visible' : 'none'
+    );
   });
 }
 
