@@ -54,9 +54,10 @@ function setReadout(extra = ''): void {
 }
 
 function logClick(event: PoiClickEvent): void {
-  pinpointInput.value = String(event.pinpoint);
+  pinpointInput.value = String(event.pinpoint.id);
   clickLog.textContent = [
-    `pinpoint: ${event.pinpoint}`,
+    `id: ${event.pinpoint.id}`,
+    `name: ${event.pinpoint.name}`,
     `externalId: ${event.externalId ?? '—'}`,
     `lngLat: ${event.lngLat.lat.toFixed(5)}, ${event.lngLat.lng.toFixed(5)}`,
   ].join('\n');

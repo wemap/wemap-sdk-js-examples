@@ -52,6 +52,8 @@ export default defineConfig({
         'user-location': resolve(__dirname, 'user-location.html'),
         'dom-marker': resolve(__dirname, 'dom-marker.html'),
         itinerary: resolve(__dirname, 'itinerary.html'),
+        'poi-interaction': resolve(__dirname, 'poi-interaction.html'),
+        'content-search': resolve(__dirname, 'content-search.html'),
       },
     },
   },
