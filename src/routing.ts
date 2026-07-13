@@ -137,7 +137,7 @@ function initializeMap(): void {
     followOnFirstFix: false,
   });
 
-  const map = mapStack.wemapMap.map;
+  const map = mapStack.wemapMap.maplibre;
   let popup: maplibregl.Popup | null = null;
 
   map.on('load', () => {

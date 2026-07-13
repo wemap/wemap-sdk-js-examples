@@ -296,13 +296,13 @@ async function main(): Promise<void> {
   });
 
   btnToggleIndoorLayer.addEventListener('click', () => {
-    const layer = map.map.getLayer(CUSTOM_LAYER_ID);
+    const layer = map.maplibre.getLayer(CUSTOM_LAYER_ID);
     if (!layer) {
       return;
     }
 
     indoorLayerVisible = !indoorLayerVisible;
-    map.map.setLayoutProperty(
+    map.maplibre.setLayoutProperty(
       CUSTOM_LAYER_ID,
       'visibility',
       indoorLayerVisible ? 'visible' : 'none'
