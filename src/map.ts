@@ -6,7 +6,7 @@
  * - camera helpers (`setCenter`, `setZoom`, `flyTo`, `fitBounds`)
  * - indoor level API (`onBuildingChange`, `setLevel`, `onLevelChange`)
  * - runtime source/layer helpers (`addSource`, `addLayer`, `registerIndoorLayer`)
- * - POI state APIs (`onPoiClick`, `setPoiHighlighted`, `setPoiSelected`, `setPoiVisible`)
+ * - POI state APIs (`onPoiClick`, `setPoiHighlighted`, `setPoiSelected`, `showAllPois` / `filterPois`)
  * - viewport pinpoints stream (`onViewportPinpointsChange`)
  */
 import { core, type Building } from '@wemap/core';
@@ -148,7 +148,7 @@ async function main(): Promise<void> {
     const c = map.getCenter();
     const highlighted = map.getPoiHighlighted();
     const selected = map.getPoiSelected();
-    const visible = map.getPoiVisible();
+    const visible = map.getPoiFilter();
     readout.textContent = [
       `center: ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`,
       `zoom: ${map.getZoom().toFixed(1)}`,
@@ -212,7 +212,7 @@ async function main(): Promise<void> {
       `id: ${event.pinpoint.id}`,
       `name: ${event.pinpoint.name}`,
       `externalId: ${event.externalId ?? '—'}`,
-      `lngLat: ${event.lngLat.lat.toFixed(5)}, ${event.lngLat.lng.toFixed(5)}`,
+      `coordinates: ${event.coordinates.lat.toFixed(5)}, ${event.coordinates.lng.toFixed(5)}`,
     ].join('\n');
   });
 
@@ -253,17 +253,17 @@ async function main(): Promise<void> {
     updateReadout();
   });
   btnVisibleSample.addEventListener('click', () => {
-    map.setPoiVisible(SAMPLE_POI_IDS);
+    map.filterPois(SAMPLE_POI_IDS);
     updateReadout();
   });
   btnVisibleAll.addEventListener('click', () => {
-    map.setPoiVisible(null);
+    map.showAllPois();
     updateReadout();
   });
   btnClearPoiState.addEventListener('click', () => {
     map.setPoiHighlighted([]);
     map.setPoiSelected([]);
-    map.setPoiVisible(null);
+    map.showAllPois();
     updateReadout();
   });
 
