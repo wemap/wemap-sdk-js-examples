@@ -192,7 +192,7 @@ async function main(): Promise<void> {
     map.setZoom(initialZoom);
   });
   btnFlyParis.addEventListener('click', () => {
-    map.flyTo({ center: [2.3522, 48.8566], zoom: 16.5, duration: 1200 });
+    map.flyTo({ center: new Coordinates(48.8566, 2.3522), zoom: 16.5, duration: 1200 });
   });
   btnFitDemo.addEventListener('click', () => {
     map.fitBounds(

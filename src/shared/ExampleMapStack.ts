@@ -6,6 +6,7 @@
  */
 import type { Pose } from '@wemap/positioning';
 import type { Itinerary } from '@wemap/routing';
+import { Coordinates } from '@wemap/geo';
 import {
   WemapMap,
   UserLocationLayer,
@@ -38,6 +39,14 @@ export type ExampleMapStackOptions = {
   onDestinationClick?: (destination: DestinationCoords) => void;
 };
 
+export function toCoordinates(
+  lat: number,
+  lng: number,
+  level?: number | null
+): Coordinates {
+  return new Coordinates(lat, lng, null, level ?? null);
+}
+
 export function poseToUserLocationUpdate(pose: Pose): UserLocationUpdate | null {
   const position = pose.position;
 
@@ -45,14 +54,11 @@ export function poseToUserLocationUpdate(pose: Pose): UserLocationUpdate | null 
     return null;
   }
 
+  const level =
+    'level' in position && typeof position.level === 'number' ? position.level : null;
+
   const update: UserLocationUpdate = {
-    position: {
-      lat: position.latitude,
-      lng: position.longitude,
-      ...('level' in position && typeof position.level === 'number'
-        ? { level: position.level }
-        : {}),
-    },
+    position: toCoordinates(position.latitude, position.longitude, level),
   };
 
   if (pose.attitude) {
@@ -133,7 +139,7 @@ export class ExampleMapStack {
   setDestination(lat: number, lng: number, level: number | null = null): void {
     this.markers.add({
       id: MARKER_DESTINATION,
-      position: level != null ? { lat, lng, level } : { lat, lng },
+      position: toCoordinates(lat, lng, level),
       color: MARKER_COLORS.destination,
     });
   }
@@ -141,7 +147,7 @@ export class ExampleMapStack {
   setOrigin(lat: number, lng: number, level?: number | null): void {
     this.markers.add({
       id: MARKER_ORIGIN,
-      position: level != null && level !== undefined ? { lat, lng, level } : { lat, lng },
+      position: toCoordinates(lat, lng, level),
       color: MARKER_COLORS.origin,
     });
   }
@@ -149,7 +155,7 @@ export class ExampleMapStack {
   setTestPosition(lat: number, lng: number, level?: number | null): void {
     this.markers.add({
       id: MARKER_TEST,
-      position: level != null && level !== undefined ? { lat, lng, level } : { lat, lng },
+      position: toCoordinates(lat, lng, level),
       color: MARKER_COLORS.test,
     });
   }
