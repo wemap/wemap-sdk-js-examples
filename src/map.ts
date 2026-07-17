@@ -4,14 +4,14 @@
  * Features shown on one page:
  * - WemapMap creation from snippet defaults (`core.init` + `new WemapMap`)
  * - camera helpers (`setCenter`, `setZoom`, `flyTo`, `fitBounds`)
- * - indoor level API (`onBuildingChange`, `setLevel`, `onLevelChange`)
+ * - indoor levels: built-in opt-in `LevelControl` + `onLevelChange` readout
  * - runtime source/layer helpers (`addSource`, `addLayer`, `registerIndoorLayer`)
  * - POI state APIs (`onPoiClick`, `setPoiHighlighted`, `setPoiSelected`, `showAllPois` / `filterPois`)
  * - viewport pinpoints stream (`onViewportPinpointsChange`)
  */
-import { core, type Building } from '@wemap/core';
+import { core } from '@wemap/core';
 import { BoundingBox, Coordinates } from '@wemap/geo';
-import { WemapMap } from '@wemap/map';
+import { WemapMap, LevelControl } from '@wemap/map';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 const EMMID = '31668';
@@ -88,9 +88,6 @@ app.innerHTML = `
       <button type="button" id="btn-zoom-out">Zoom -1</button>
     </div>
 
-    <div id="levels" class="section" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
-      <span>No building in view</span>
-    </div>
 
     <div id="poi-controls" class="section" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
       <strong>POI state</strong>
@@ -115,7 +112,6 @@ app.innerHTML = `
   </div>
 `;
 
-const levelsBar = document.querySelector<HTMLDivElement>('#levels')!;
 const readout = document.querySelector<HTMLParagraphElement>('#readout')!;
 const poiClickLog = document.querySelector<HTMLParagraphElement>('#poi-click-log')!;
 const pinpointsLog = document.querySelector<HTMLPreElement>('#pinpoints-log')!;
@@ -161,50 +157,12 @@ async function main(): Promise<void> {
     ].join(' · ');
   };
 
-  const levelButtons = new Map<number, HTMLButtonElement>();
-  const setActiveLevel = (active: number | null) => {
-    for (const [lvl, btn] of levelButtons) {
-      btn.style.background = lvl === active ? '#007bff' : '#fff';
-      btn.style.color = lvl === active ? '#fff' : '#1a202c';
-    }
-  };
-
-  map.onLevelChange((level) => {
-    setActiveLevel(level);
-    updateReadout();
-  });
+  map.onLevelChange(updateReadout);
   map.on('move', updateReadout);
   map.on('load', updateReadout);
 
-  map.onBuildingChange((building: Building | null) => {
-    levelButtons.clear();
-    levelsBar.replaceChildren();
-
-    if (!building?.levels.length) {
-      levelsBar.append(
-        Object.assign(document.createElement('span'), { textContent: 'No building in view' })
-      );
-      return;
-    }
-
-    levelsBar.append(
-      Object.assign(document.createElement('span'), {
-        textContent: `${building.name} — level:`,
-      })
-    );
-
-    for (const lvl of [...building.levels].sort((a, b) => b.level - a.level)) {
-      const btn = document.createElement('button');
-      btn.textContent = lvl.short_name;
-      btn.style.cssText =
-        'padding:.4rem .8rem;border:1px solid #cbd5e0;border-radius:4px;cursor:pointer;background:#fff';
-      btn.addEventListener('click', () => map.setLevel(lvl.level));
-      levelButtons.set(lvl.level, btn);
-      levelsBar.append(btn);
-    }
-
-    setActiveLevel(map.getLevel());
-  });
+  // Built-in opt-in indoor level switcher (replaces the former hand-built #levels bar).
+  map.addControl(new LevelControl(map));
 
   map.onPoiClick((event) => {
     poiClickLog.textContent = [
