@@ -2,6 +2,18 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+  
+  // These options were migrated by @nx/vite:convert-to-inferred from the project.json file.
+  const configValues = {"default":{},"development":{},"production":{}};
+  
+  // Determine the correct configValue to use based on the configuration
+  const nxConfiguration = process.env.NX_TASK_TARGET_CONFIGURATION ?? 'default';
+  
+  const options = {
+    ...configValues.default,
+    ...(configValues[nxConfiguration] ?? {})
+  }
+  
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const rootDir = resolve(__dirname, '../..');
@@ -39,7 +51,7 @@ export default defineConfig({
     commonjsOptions: {
       ignoreTryCatch: false,
     },
-    rollupOptions: {
+    rolldownOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
         combined: resolve(__dirname, 'combined.html'),

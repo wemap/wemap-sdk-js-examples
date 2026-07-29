@@ -3,23 +3,25 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "apps/examples",
   "projectType": "application",
-  "tags": ["type:app"],
+  "tags": [
+    "type:app"
+  ],
   "targets": {
     "serve": {
-      "executor": "@nx/vite:dev-server",
       "options": {
-        "buildTarget": "examples:build",
         "port": 4200,
         "configFile": "apps/examples/vite.config.ts"
       }
     },
     "build": {
-      "executor": "@nx/vite:build",
-      "outputs": ["{options.outputPath}"],
+      "outputs": [
+        "{projectRoot}/{options.outDir}",
+        "{workspaceRoot}/dist/apps/examples"
+      ],
       "defaultConfiguration": "production",
       "options": {
-        "outputPath": "dist/apps/examples",
-        "configFile": "apps/examples/vite.config.ts"
+        "config": "./vite.config.ts",
+        "outDir": "../../dist/apps/examples"
       },
       "configurations": {
         "development": {
@@ -31,17 +33,10 @@
       }
     },
     "preview": {
-      "executor": "@nx/vite:preview-server",
       "defaultConfiguration": "production",
-      "options": {
-        "buildTarget": "examples:build"
-      },
       "configurations": {
-        "production": {
-          "buildTarget": "examples:build:production"
-        }
+        "production": {}
       }
     }
   }
 }
-

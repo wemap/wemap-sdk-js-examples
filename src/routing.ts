@@ -11,7 +11,7 @@ import {
   type Itinerary as ItineraryType,
   type ItineraryInfo,
 } from '@wemap/routing';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { ExampleMapStack } from './shared/ExampleMapStack';
 
 // Display example info
