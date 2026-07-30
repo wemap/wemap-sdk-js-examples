@@ -12,7 +12,7 @@
 import { core } from '@wemap/core';
 import { BoundingBox, Coordinates } from '@wemap/geo';
 import { WemapMap, LevelControl } from '@wemap/map';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import './shared/maplibreSetup';
 
 const EMMID = '31668';
 const CUSTOM_SOURCE_ID = 'example-level-areas';

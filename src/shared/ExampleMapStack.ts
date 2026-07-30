@@ -15,7 +15,7 @@ import {
   type UserLocationUpdate,
 } from '@wemap/map';
 import type { MapMouseEvent } from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import './maplibreSetup';
 
 const MARKER_DESTINATION = 'destination';
 const MARKER_ORIGIN = 'origin';
