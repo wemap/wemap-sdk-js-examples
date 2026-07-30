@@ -10,7 +10,7 @@
     "serve": {
       "options": {
         "port": 4200,
-        "configFile": "apps/examples/vite.config.ts"
+        "config": "./vite.config.ts"
       }
     },
     "build": {
