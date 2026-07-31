@@ -15,6 +15,7 @@ import {
   Coordinates,
 } from '@wemap/routing';
 import { ExampleMapStack } from './shared/ExampleMapStack';
+import { poseReadoutHtml } from './shared/poseReadoutHtml';
 
 // Display example info
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -67,57 +68,7 @@ gnssWifiLocationSource.onError((error: Error) => {
   console.error('[GnssWifiLocationSource] Error:', error);
 });
 
-// Function to render pose data
-function renderPose(pose: Pose): string {
-  const position = pose.position;
-  const attitude = pose.attitude;
-
-  return `
-    <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
-      <h4>Current Pose</h4>
-      
-      ${position ? `
-        <div style="margin-left: 1rem; margin-top: 0.5rem;">
-          <h5 style="margin: 0.5rem 0;">Position</h5>
-          <p><strong>Latitude:</strong> ${'latitude' in position ? position.latitude.toFixed(6) : 'N/A'}</p>
-          <p><strong>Longitude:</strong> ${'longitude' in position ? position.longitude.toFixed(6) : 'N/A'}</p>
-          ${'altitude' in position && position.altitude !== null && typeof position.altitude === 'number' 
-            ? `<p><strong>Altitude:</strong> ${position.altitude.toFixed(2)}m</p>` 
-            : ''}
-          ${'level' in position && position.level !== null 
-            ? `<p><strong>Level:</strong> ${position.level}</p>` 
-            : ''}
-          ${pose.accuracy !== undefined && typeof pose.accuracy === 'number' 
-            ? `<p><strong>Accuracy:</strong> ${pose.accuracy.toFixed(2)}m</p>` 
-            : ''}
-          ${pose.time && typeof pose.time === 'number' 
-            ? `<p><strong>Time:</strong> ${new Date(pose.time).toLocaleTimeString()}</p>` 
-            : ''}
-        </div>
-      ` : '<p style="color: #999; margin-left: 1rem;">No position data yet</p>'}
-      
-      ${attitude ? `
-        <div style="margin-left: 1rem; margin-top: 0.5rem;">
-          <h5 style="margin: 0.5rem 0;">Attitude</h5>
-          ${'heading' in attitude && typeof attitude.heading === 'number' 
-            ? `<p><strong>Heading:</strong> ${attitude.heading.toFixed(3)} rad (${(attitude.heading * 180 / Math.PI).toFixed(1)}°)</p>` 
-            : ''}
-          ${'pitch' in attitude && typeof attitude.pitch === 'number' 
-            ? `<p><strong>Pitch:</strong> ${attitude.pitch.toFixed(3)} rad</p>` 
-            : ''}
-          ${'roll' in attitude && typeof attitude.roll === 'number' 
-            ? `<p><strong>Roll:</strong> ${attitude.roll.toFixed(3)} rad</p>` 
-            : ''}
-        </div>
-      ` : '<p style="color: #999; margin-left: 1rem;">No attitude data yet</p>'}
-      
-      <details style="margin-top: 0.5rem;">
-        <summary style="cursor: pointer; font-weight: bold; color: #666;">Raw Pose Data</summary>
-        <pre style="margin-top: 0.5rem; font-size: 0.875rem; overflow-x: auto; background: #f5f5f5; padding: 0.5rem; border-radius: 4px;">${JSON.stringify(pose, null, 2)}</pre>
-      </details>
-    </div>
-  `;
-}
+// Pose readout markup is shared with the location-source examples.
 
 // Function to create an itinerary from current GPS position
 function createItineraryFromCurrentPosition(): void {
@@ -224,16 +175,6 @@ function updateMapItinerary(): void {
 function initializeUIStructure(): void {
   app.innerHTML = `
     <div class="main-container">
-      <div class="nav-links">
-        <strong>📋 Example Pages:</strong>
-        <a href="/index.html">Index</a>
-        <a href="/combined.html">Combined (VPS)</a>
-        <a href="/combined-gnss.html">Combined (GNSS)</a>
-        <a href="/gnss-location-source.html">GnssWifiLocationSource</a>
-        <a href="/vps-location-source.html">VPSLocationSource</a>
-        <a href="/map-matching.html" style="font-weight: bold;">MapMatching</a>
-        <a href="/routing.html">Routing</a>
-      </div>
       <div id="content-container"></div>
       <div class="section">
         <h2 class="section-title">Map Visualization</h2>
@@ -270,7 +211,7 @@ function updateUI() {
   if (!contentContainer) return;
   
   contentContainer.innerHTML = `
-      <h1 style="font-size: 1.5rem; margin: 0 0 1rem 0;">MapMatching Example</h1>
+      <h1>MapMatching Example</h1>
       
       <div class="section" style="background: #e3f2fd;">
         <h3 style="margin-top: 0; font-size: 1.125rem;">Core Status</h3>
@@ -366,7 +307,7 @@ function updateUI() {
             </div>
           </div>
           
-          ${renderPose(gnssPose)}
+          ${poseReadoutHtml(gnssPose)}
         </div>
       </div>
   `;

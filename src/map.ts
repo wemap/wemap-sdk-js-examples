@@ -79,32 +79,37 @@ app.innerHTML = `
     <h1>@wemap/map — Feature showcase</h1>
     <p>Livemap <strong>${EMMID}</strong>. One page demonstrating the core map APIs integrators use most.</p>
 
-    <div id="camera-controls" class="section" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
-      <strong>Camera</strong>
-      <button type="button" id="btn-reset-view">Reset view</button>
-      <button type="button" id="btn-fly-paris">Fly to Paris center</button>
-      <button type="button" id="btn-fit-demo">Fit demo bounds</button>
-      <button type="button" id="btn-zoom-in">Zoom +1</button>
-      <button type="button" id="btn-zoom-out">Zoom -1</button>
+    <div id="camera-controls" class="section">
+      <h2 class="section-title">Camera</h2>
+      <div class="button-group">
+        <button type="button" id="btn-reset-view" class="btn btn-secondary">Reset view</button>
+        <button type="button" id="btn-fly-paris" class="btn btn-secondary">Fly to Paris center</button>
+        <button type="button" id="btn-fit-demo" class="btn btn-secondary">Fit demo bounds</button>
+        <button type="button" id="btn-zoom-in" class="btn btn-secondary">Zoom +1</button>
+        <button type="button" id="btn-zoom-out" class="btn btn-secondary">Zoom -1</button>
+      </div>
     </div>
 
-
-    <div id="poi-controls" class="section" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
-      <strong>POI state</strong>
-      <button type="button" id="btn-highlight-sample">Highlight sample IDs</button>
-      <button type="button" id="btn-select-sample">Select sample IDs</button>
-      <button type="button" id="btn-visible-sample">Show sample IDs only</button>
-      <button type="button" id="btn-visible-all">Show all</button>
-      <button type="button" id="btn-clear-poi-state">Clear POI state</button>
+    <div id="poi-controls" class="section">
+      <h2 class="section-title">POI state</h2>
+      <div class="button-group">
+        <button type="button" id="btn-highlight-sample" class="btn btn-secondary">Highlight sample IDs</button>
+        <button type="button" id="btn-select-sample" class="btn btn-secondary">Select sample IDs</button>
+        <button type="button" id="btn-visible-sample" class="btn btn-secondary">Show sample IDs only</button>
+        <button type="button" id="btn-visible-all" class="btn btn-secondary">Show all</button>
+        <button type="button" id="btn-clear-poi-state" class="btn btn-secondary">Clear POI state</button>
+      </div>
     </div>
 
-    <div id="layer-controls" class="section" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
-      <strong>Runtime layers</strong>
-      <button type="button" id="btn-add-indoor-layer" disabled>Add indoor demo layer</button>
-      <button type="button" id="btn-toggle-indoor-layer" disabled>Toggle layer visibility</button>
+    <div id="layer-controls" class="section">
+      <h2 class="section-title">Runtime layers</h2>
+      <div class="button-group">
+        <button type="button" id="btn-add-indoor-layer" class="btn btn-secondary" disabled>Add indoor demo layer</button>
+        <button type="button" id="btn-toggle-indoor-layer" class="btn btn-secondary" disabled>Toggle layer visibility</button>
+      </div>
     </div>
 
-    <div id="map" style="width:100%;height:64vh;border-radius:8px;margin-top:1rem"></div>
+    <div id="map" class="map-container"></div>
 
     <p id="readout" style="margin-top:.5rem;color:#4a5568;font-size:.875rem"></p>
     <p id="poi-click-log" style="margin-top:.25rem;color:#1a365d;font-size:.875rem;font-family:monospace;white-space:pre-wrap"></p>

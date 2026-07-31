@@ -15,6 +15,7 @@ import {
   type UserLocationUpdate,
 } from '@wemap/map';
 import type { MapMouseEvent } from 'maplibre-gl';
+import { readPose } from './readPose';
 import './maplibreSetup';
 
 const MARKER_DESTINATION = 'destination';
@@ -48,17 +49,14 @@ export function toCoordinates(
 }
 
 export function poseToUserLocationUpdate(pose: Pose): UserLocationUpdate | null {
-  const position = pose.position;
+  const { position } = readPose(pose);
 
-  if (!position || !('latitude' in position) || !('longitude' in position)) {
+  if (!position) {
     return null;
   }
 
-  const level =
-    'level' in position && typeof position.level === 'number' ? position.level : null;
-
   const update: UserLocationUpdate = {
-    position: toCoordinates(position.latitude, position.longitude, level),
+    position: toCoordinates(position.latitude, position.longitude, position.level),
   };
 
   if (pose.attitude) {

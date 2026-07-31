@@ -5,74 +5,48 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Wemap SDK - VPSLocationSource Example</title>
+    <!-- Unified Styles -->
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <header class="site-header">
+      <a class="site-header__back" href="/index.html">All examples</a>
+      <span class="site-header__brand">Wemap SDK Examples</span>
+    </header>
     <div id="app">
-      <div style="padding: 2rem; font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto;">
-        <div class="nav-links">
-          <strong>📋 Example Pages:</strong>
-          <a href="/index.html">Index</a>
-          <a href="/combined.html">Combined (VPS)</a>
-          <a href="/combined-gnss.html">Combined (GNSS)</a>
-          <a href="/gnss-location-source.html">GnssWifiLocationSource</a>
-          <a href="/vps-location-source.html" style="font-weight: bold;">VPSLocationSource</a>
-          <a href="/map-matching.html">MapMatching</a>
-          <a href="/routing.html">Routing</a>
-        </div>
-        
+      <div class="main-container">
         <h1>VPSLocationSource Example</h1>
-        
-        <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
-          <h3>Core Status</h3>
+
+        <div class="section" style="background: #e3f2fd;">
+          <h3 style="margin-top: 0; font-size: 1.125rem;">Core Status</h3>
           <p><strong>Initialized:</strong> <span id="core-status" style="color: #dc3545;">✗ No</span></p>
           <p><strong>UI update time:</strong> <span id="ui-update-time"></span></p>
         </div>
 
-        <div style="background: #f5f5f5; padding: 1.5rem; border-radius: 8px; margin-top: 2rem;">
-          <h2 style="margin-top: 0;">VPSLocationSource</h2>
+        <div class="section">
+          <h2 class="section-title">VPSLocationSource</h2>
           <p style="color: #666; font-size: 0.9rem;">
             Combines VPS (Visual Positioning System) + PDR (Pedestrian Dead Reckoning) + AbsoluteAttitude
           </p>
-          
+
           <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
               <div>
-                <strong>Status:</strong> <span id="vps-status" style="color: #dc3545;">○ Stopped</span>
+                <strong>Status:</strong> <span id="source-status" style="color: #dc3545;">○ Stopped</span>
                 <strong>Scan Status:</strong> <span id="scan-status" style="color: #dc3545;">○ Stopped</span>
                 <span style="margin-left: 1rem;"><strong>Updates:</strong> <span id="update-count">0</span></span>
                 <span id="error-display" style="margin-left: 1rem; color: #dc3545; display: none;">
                   <strong>⚠️ Error:</strong> <span id="error-message"></span>
                 </span>
               </div>
-              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button 
-                  id="start-vps-source" 
-                  style="padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;"
-                >
-                  Start VPS Source
-                </button>
-                <button 
-                  id="stop-vps-source" 
-                  style="padding: 0.5rem 1rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;"
-                >
-                  Stop VPS Source
-                </button>
-
-                <button 
-                  id="start-vps-scan" 
-                  style="padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;"
-                >
-                  Start VPS Scan
-                </button>
-                <button 
-                  id="stop-vps-scan" 
-                  style="padding: 0.5rem 1rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;"
-                >
-                  Stop VPS Scan
-                </button>
+              <div class="button-group" style="margin-top: 0;">
+                <button id="start-source" class="btn btn-success">Start VPS Source</button>
+                <button id="stop-source" class="btn btn-danger">Stop VPS Source</button>
+                <button id="start-scan" class="btn btn-success">Start VPS Scan</button>
+                <button id="stop-scan" class="btn btn-danger">Stop VPS Scan</button>
               </div>
             </div>
-            
+
             <div id="pose-container">
               <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
                 <h4>Current Pose</h4>
@@ -82,9 +56,9 @@
           </div>
         </div>
 
-        <div id="camera-section" style="margin-top: 2rem; display: none;">
-          <h2>Camera (for VPS)</h2>
-          <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+        <div id="camera-section" class="section" style="display: none;">
+          <h2 class="section-title">Camera (for VPS)</h2>
+          <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
             <p><strong>Status:</strong> <span id="camera-status" style="color: #dc3545;">stopped</span></p>
             <div id="camera-fov"></div>
             <p style="color: #6c757d; font-size: 0.875rem; margin-top: 0.5rem;">
@@ -95,7 +69,7 @@
 
         <div id="camera-container" style="width: 100%; max-width: 640px; margin: 1rem auto; background: #000; border-radius: 8px; overflow: hidden; position: relative; min-height: 360px; display: none;"></div>
 
-        <div style="margin-top: 2rem; padding: 1rem; background: #fff3cd; border-radius: 8px; border: 1px solid #ffc107;">
+        <div class="info-box info-box-warning" style="margin-top: 2rem;">
           <p><strong>💡 VPSLocationSource:</strong></p>
           <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
             <li>Requires camera permissions and VPS endpoint (from CoreConfig)</li>

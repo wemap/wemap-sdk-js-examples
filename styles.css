@@ -25,6 +25,13 @@ body {
   margin: 0 auto;
 }
 
+/* Shared page title so every example heading matches. */
+.main-container h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 1rem 0;
+}
+
 .section {
   background: #f5f5f5;
   padding: 1rem;
@@ -38,28 +45,41 @@ body {
 }
 
 /* ============================================
-   Navigation Links
+   Site Header (shared across every example page)
    ============================================ */
 
-.nav-links {
-  margin-bottom: 1rem;
-  padding: 0.75rem;
-  background: #e7f3ff;
-  border-radius: 4px;
-  border: 1px solid #b3d9ff;
-  font-size: 0.875rem;
-  line-height: 1.6;
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.nav-links a {
-  display: inline-block;
-  margin: 0.25rem 0.5rem 0.25rem 0;
-  color: #0066cc;
+.site-header__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: #1a202c;
+  font-weight: 600;
+  font-size: 0.9375rem;
   text-decoration: none;
 }
 
-.nav-links a:hover {
-  text-decoration: underline;
+.site-header__back::before {
+  content: '←';
+}
+
+.site-header__back:hover {
+  color: #007bff;
+}
+
+.site-header__brand {
+  color: #718096;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 /* ============================================
@@ -110,6 +130,18 @@ body {
 
 .btn-danger:hover:not(:disabled) {
   background: #c82333;
+}
+
+/* Neutral button for secondary / utility actions (camera, zoom, toggles…). */
+.btn-secondary {
+  background: #ffffff;
+  color: #1a202c;
+  border: 1px solid #cbd5e0;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #f7fafc;
+  border-color: #a0aec0;
 }
 
 .btn:disabled {
