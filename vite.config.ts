@@ -61,6 +61,7 @@ export default defineConfig({
         routing: resolve(__dirname, 'routing.html'),
         'map-matching': resolve(__dirname, 'map-matching.html'),
         map: resolve(__dirname, 'map.html'),
+        'viewport-pinpoints': resolve(__dirname, 'viewport-pinpoints.html'),
       },
     },
   },

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wemap SDK - Custom markers from API pinpoints</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      .api-marker {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        cursor: pointer;
+      }
+      .api-marker__label {
+        background: rgba(255, 255, 255, 0.92);
+        color: #1a365d;
+        font: 600 12px/1 system-ui, sans-serif;
+        padding: 3px 6px;
+        border-radius: 4px;
+        white-space: nowrap;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+      }
+      .api-marker__dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #2f7de1;
+        border: 2px solid #fff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+      }
+      .vp-layout { display: flex; gap: 1rem; margin-top: 1rem; align-items: stretch; }
+      .vp-map { flex: 1 1 auto; height: 70vh; border-radius: 8px; }
+      .vp-aside {
+        flex: 0 0 320px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1rem;
+        overflow: auto;
+        font-size: 0.875rem;
+        color: #2d3748;
+      }
+      .vp-aside h2 { margin: 0 0 0.25rem; font-size: 1rem; }
+      .vp-count { font-weight: 700; color: #1a365d; }
+      .vp-trigger { color: #718096; }
+      .vp-details { margin-top: 1rem; }
+      .vp-hint { color: #718096; }
+      .vp-detail-list dt { font-weight: 600; color: #4a5568; margin-top: 0.5rem; }
+      .vp-detail-list dd { margin: 0; }
+      .vp-detail-list pre {
+        background: #f7fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 4px;
+        padding: 0.5rem;
+        margin: 0.25rem 0 0;
+        overflow: auto;
+        font-size: 0.75rem;
+      }
+      .vp-readout { margin-top: 0.5rem; color: #4a5568; font-size: 0.875rem; }
+      @media (max-width: 720px) {
+        .vp-layout { flex-direction: column; }
+        .vp-aside { flex-basis: auto; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="main-container">
+        <h1>@wemap/map — Custom markers from API pinpoints</h1>
+        <p>
+          Livemap <strong>21864</strong> has no pinpoints in its map style — they
+          come from the API via <code>PinpointManager</code>. Pan and zoom: custom
+          markers track the pinpoints in the viewport. Click one for its API data.
+        </p>
+
+        <div class="vp-layout">
+          <div id="map" class="vp-map"></div>
+          <aside class="vp-aside">
+            <h2>Viewport pinpoints</h2>
+            <div>
+              <span class="vp-count" id="vp-count">…</span> in view
+              <span class="vp-trigger" id="vp-trigger">(loading)</span>
+            </div>
+            <div class="vp-details" id="vp-details">
+              <p class="vp-hint">Click a marker to inspect its pinpoint.</p>
+            </div>
+          </aside>
+        </div>
+
+        <p class="vp-readout" id="readout"></p>
+      </div>
+    </div>
+
+    <!-- Custom marker cloned per pinpoint; the dot is last so DomMarkerLayer's
+         'bottom' anchor puts it on the coordinate, with the label floating above. -->
+    <template id="marker-template">
+      <div class="api-marker">
+        <span class="api-marker__label"></span>
+        <span class="api-marker__dot"></span>
+      </div>
+    </template>
+
+    <!-- Details panel filled from a clicked pinpoint's API data. -->
+    <template id="details-template">
+      <dl class="vp-detail-list">
+        <dt>ID</dt>
+        <dd data-field="id"></dd>
+        <dt>Name</dt>
+        <dd data-field="name"></dd>
+        <dt>Level</dt>
+        <dd data-field="level"></dd>
+        <dt>Coordinates</dt>
+        <dd data-field="coordinates"></dd>
+        <dt>Address</dt>
+        <dd data-field="address"></dd>
+        <dt>Tags</dt>
+        <dd data-field="tags"></dd>
+        <dt>external_data</dt>
+        <dd><pre data-field="external_data"></pre></dd>
+      </dl>
+    </template>
+
+    <script type="module" src="/src/viewport-pinpoints.ts"></script>
+  </body>
+</html>
