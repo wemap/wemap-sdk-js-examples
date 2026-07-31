@@ -175,6 +175,11 @@ async function main(): Promise<void> {
   });
 
   map.onViewportPinpointsChange(({ pinpoints, trigger }) => {
+    // Skip the pre-fetch `loading` snapshot; log only settled results.
+    if (trigger === 'loading') {
+      return;
+    }
+
     const preview = pinpoints
       .slice(0, 8)
       .map((p) => `#${p.id} · ${p.name} · level ${p.level ?? '—'}`);
