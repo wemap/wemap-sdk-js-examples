@@ -44,8 +44,33 @@
             </div>
 
             <p style="color: #666; font-size: 0.9rem; margin: 0.5rem 0;">
-              Click on the map to set origin and destination, then calculate the route
+              Search for departure and arrival, or click the map to set origin / destination
             </p>
+
+            <div class="geocode-fields">
+              <div class="form-group geocode-field">
+                <label for="departure-input">Departure</label>
+                <input
+                  type="search"
+                  id="departure-input"
+                  class="geocode-input"
+                  placeholder="Search departure…"
+                  autocomplete="off"
+                />
+                <ul id="departure-suggestions" class="geocode-suggestions" hidden></ul>
+              </div>
+              <div class="form-group geocode-field">
+                <label for="arrival-input">Arrival</label>
+                <input
+                  type="search"
+                  id="arrival-input"
+                  class="geocode-input"
+                  placeholder="Search arrival…"
+                  autocomplete="off"
+                />
+                <ul id="arrival-suggestions" class="geocode-suggestions" hidden></ul>
+              </div>
+            </div>
             
             <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;">
               <div id="itinerary-info-container"></div>
@@ -100,6 +125,7 @@
             <p><strong>💡 Routing Usage:</strong></p>
             <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
               <li>Initialize Router first (uses config from CoreConfig if available)</li>
+              <li>Search departure / arrival with GeocodingService, or click the map</li>
               <li>Calculate routes between two coordinates</li>
               <li>View route information including distance, duration, and legs</li>
               <li>Test Navigation utilities by setting a test position along the route</li>

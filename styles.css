@@ -188,6 +188,77 @@ body {
 }
 
 /* ============================================
+   Geocoding search fields (routing example)
+   ============================================ */
+
+.geocode-fields {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.geocode-field {
+  position: relative;
+  margin-top: 0;
+}
+
+.geocode-suggestions {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  background: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.geocode-suggestions[hidden] {
+  display: none;
+}
+
+.geocode-suggestions li button {
+  display: block;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #1a202c;
+}
+
+.geocode-suggestions li button:hover,
+.geocode-suggestions li button:focus {
+  background: #f0f7ff;
+  outline: none;
+}
+
+.geocode-suggestions li + li {
+  border-top: 1px solid #eee;
+}
+
+.geocode-suggestions__empty,
+.geocode-suggestions__status {
+  padding: 0.625rem 0.75rem;
+  font-size: 0.8125rem;
+  color: #718096;
+}
+
+@media (min-width: 768px) {
+  .geocode-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ============================================
    Map Container
    ============================================ */
 

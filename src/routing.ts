@@ -3,7 +3,7 @@
  * 
  * Demonstrates Router, route calculation, itinerary management, and Navigation utilities
  */
-import { CoreConfig } from '@wemap/core';
+import { CoreConfig, type GeocodingResult } from '@wemap/core';
 import {
   Router,
   Coordinates,
@@ -13,6 +13,9 @@ import {
 } from '@wemap/routing';
 import * as maplibregl from 'maplibre-gl';
 import { ExampleMapStack } from './shared/ExampleMapStack';
+
+type RouteEndpoint = 'departure' | 'arrival';
+const GEOCODE_DEBOUNCE_MS = 300;
 
 // Display example info
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -49,6 +52,15 @@ let destinationPosition: { lat: number; lon: number } | null = null;
 
 let mapStack: ExampleMapStack | null = null;
 let router: Router | null = null;
+const geocoding = core.createGeocodingService({ language: 'en' });
+
+let departureInput: HTMLInputElement | null = null;
+let arrivalInput: HTMLInputElement | null = null;
+let departureSuggestionsEl: HTMLUListElement | null = null;
+let arrivalSuggestionsEl: HTMLUListElement | null = null;
+let departureSearchTimer: ReturnType<typeof setTimeout> | null = null;
+let arrivalSearchTimer: ReturnType<typeof setTimeout> | null = null;
+let geocodeFieldsWired = false;
 
 // Initialize Router
 function initializeRouter(): void {
@@ -192,21 +204,13 @@ function initializeMap(): void {
 
     buttonContainer.appendChild(
       createButton('Set as Origin', () => {
-        originPosition = { lat, lon: lng };
-        updateOriginMarker(lat, lng);
-        updateUI();
+        void setEndpointFromMap('departure', lat, lng);
       })
     );
 
     buttonContainer.appendChild(
       createButton('Set as Destination', () => {
-        destinationPosition = { lat, lon: lng };
-        updateDestinationMarker(lat, lng);
-        updateUI();
-
-        if (originPosition && router) {
-          calculateRoute(originPosition, destinationPosition);
-        }
+        void setEndpointFromMap('arrival', lat, lng);
       })
     );
 
@@ -275,6 +279,237 @@ function updateMapTestPosition(): void {
   }
 
   mapStack.setTestPosition(testPosition.lat, testPosition.lon);
+}
+
+function getEndpointElements(endpoint: RouteEndpoint): {
+  input: HTMLInputElement | null;
+  suggestions: HTMLUListElement | null;
+} {
+  if (endpoint === 'departure') {
+    return { input: departureInput, suggestions: departureSuggestionsEl };
+  }
+
+  return { input: arrivalInput, suggestions: arrivalSuggestionsEl };
+}
+
+function hideSuggestions(endpoint: RouteEndpoint): void {
+  const { suggestions } = getEndpointElements(endpoint);
+  if (!suggestions) {
+    return;
+  }
+
+  suggestions.innerHTML = '';
+  suggestions.hidden = true;
+}
+
+function renderSuggestionsStatus(endpoint: RouteEndpoint, message: string): void {
+  const { suggestions } = getEndpointElements(endpoint);
+  if (!suggestions) {
+    return;
+  }
+
+  suggestions.innerHTML = `<li class="geocode-suggestions__status">${message}</li>`;
+  suggestions.hidden = false;
+}
+
+function renderSuggestions(endpoint: RouteEndpoint, results: GeocodingResult[]): void {
+  const { suggestions } = getEndpointElements(endpoint);
+  if (!suggestions) {
+    return;
+  }
+
+  if (results.length === 0) {
+    suggestions.innerHTML = '<li class="geocode-suggestions__empty">No places found</li>';
+    suggestions.hidden = false;
+    return;
+  }
+
+  suggestions.innerHTML = '';
+  for (const result of results) {
+    const item = document.createElement('li');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = result.placeName;
+    button.onclick = () => {
+      selectGeocodingResult(endpoint, result);
+    };
+    item.appendChild(button);
+    suggestions.appendChild(item);
+  }
+  suggestions.hidden = false;
+}
+
+async function searchEndpoint(endpoint: RouteEndpoint, query: string): Promise<void> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) {
+    hideSuggestions(endpoint);
+    return;
+  }
+
+  renderSuggestionsStatus(endpoint, 'Searching…');
+
+  try {
+    const results = await geocoding.searchMultiple(trimmed);
+    renderSuggestions(endpoint, results);
+  } catch (error) {
+    console.error(`Geocoding search failed (${endpoint}):`, error);
+    renderSuggestionsStatus(endpoint, 'Search failed');
+  }
+}
+
+function scheduleSearch(endpoint: RouteEndpoint, query: string): void {
+  if (endpoint === 'departure') {
+    if (departureSearchTimer) {
+      clearTimeout(departureSearchTimer);
+    }
+    departureSearchTimer = setTimeout(() => {
+      void searchEndpoint(endpoint, query);
+    }, GEOCODE_DEBOUNCE_MS);
+    return;
+  }
+
+  if (arrivalSearchTimer) {
+    clearTimeout(arrivalSearchTimer);
+  }
+  arrivalSearchTimer = setTimeout(() => {
+    void searchEndpoint(endpoint, query);
+  }, GEOCODE_DEBOUNCE_MS);
+}
+
+function flyToEndpoint(lat: number, lon: number): void {
+  mapStack?.wemapMap.maplibre.flyTo({
+    center: [lon, lat],
+    zoom: Math.max(mapStack.wemapMap.maplibre.getZoom(), 14),
+  });
+}
+
+function applyEndpointPosition(
+  endpoint: RouteEndpoint,
+  lat: number,
+  lon: number,
+  label?: string
+): void {
+  const { input } = getEndpointElements(endpoint);
+
+  if (endpoint === 'departure') {
+    originPosition = { lat, lon };
+    updateOriginMarker(lat, lon);
+  } else {
+    destinationPosition = { lat, lon };
+    updateDestinationMarker(lat, lon);
+  }
+
+  if (input) {
+    input.value = label ?? `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  }
+
+  hideSuggestions(endpoint);
+  flyToEndpoint(lat, lon);
+  updateUI();
+}
+
+function selectGeocodingResult(endpoint: RouteEndpoint, result: GeocodingResult): void {
+  applyEndpointPosition(endpoint, result.latitude, result.longitude, result.placeName);
+
+  if (
+    endpoint === 'arrival' &&
+    originPosition &&
+    destinationPosition &&
+    router
+  ) {
+    void calculateRoute(originPosition, destinationPosition);
+  }
+}
+
+async function setEndpointFromMap(
+  endpoint: RouteEndpoint,
+  lat: number,
+  lon: number
+): Promise<void> {
+  applyEndpointPosition(endpoint, lat, lon);
+
+  try {
+    const place = await geocoding.reverseGeocode(lat, lon);
+    const { input } = getEndpointElements(endpoint);
+    if (place && input) {
+      input.value = place.placeName;
+    }
+  } catch (error) {
+    console.warn(`Reverse geocoding failed (${endpoint}):`, error);
+  }
+
+  if (
+    endpoint === 'arrival' &&
+    originPosition &&
+    destinationPosition &&
+    router
+  ) {
+    void calculateRoute(originPosition, destinationPosition);
+  }
+}
+
+function wireGeocodeFields(): void {
+  if (geocodeFieldsWired) {
+    return;
+  }
+
+  departureInput = document.getElementById('departure-input') as HTMLInputElement | null;
+  arrivalInput = document.getElementById('arrival-input') as HTMLInputElement | null;
+  departureSuggestionsEl = document.getElementById(
+    'departure-suggestions'
+  ) as HTMLUListElement | null;
+  arrivalSuggestionsEl = document.getElementById(
+    'arrival-suggestions'
+  ) as HTMLUListElement | null;
+
+  if (!departureInput || !arrivalInput) {
+    return;
+  }
+
+  departureInput.addEventListener('input', () => {
+    scheduleSearch('departure', departureInput!.value);
+  });
+  arrivalInput.addEventListener('input', () => {
+    scheduleSearch('arrival', arrivalInput!.value);
+  });
+
+  departureInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      hideSuggestions('departure');
+    }
+  });
+  arrivalInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      hideSuggestions('arrival');
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    const target = event.target as Node | null;
+    if (!target) {
+      return;
+    }
+
+    if (
+      departureInput &&
+      departureSuggestionsEl &&
+      !departureInput.contains(target) &&
+      !departureSuggestionsEl.contains(target)
+    ) {
+      hideSuggestions('departure');
+    }
+
+    if (
+      arrivalInput &&
+      arrivalSuggestionsEl &&
+      !arrivalInput.contains(target) &&
+      !arrivalSuggestionsEl.contains(target)
+    ) {
+      hideSuggestions('arrival');
+    }
+  });
+
+  geocodeFieldsWired = true;
 }
 
 // Render itinerary information
@@ -375,6 +610,7 @@ function initializeUIStructure(): void {
   // HTML is now in routing.html, just get references to elements
   contentContainer = document.getElementById('content-container') as HTMLDivElement;
   mapContainer = document.getElementById('map-container') as HTMLDivElement;
+  wireGeocodeFields();
 }
 
 // Update UI
@@ -471,6 +707,15 @@ function handleClearRoute(): void {
   originPosition = null;
   destinationPosition = null;
   itineraryInfoManager = null;
+
+  if (departureInput) {
+    departureInput.value = '';
+  }
+  if (arrivalInput) {
+    arrivalInput.value = '';
+  }
+  hideSuggestions('departure');
+  hideSuggestions('arrival');
 
   mapStack?.clearMarkers();
   updateUI();
