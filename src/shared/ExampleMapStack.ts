@@ -6,7 +6,7 @@
  */
 import type { Pose } from '@wemap/positioning';
 import type { Itinerary } from '@wemap/routing';
-import { Coordinates } from '@wemap/geo';
+import { Coordinates, type Level_t } from '@wemap/geo';
 import {
   WemapMap,
   UserLocationLayer,
@@ -43,7 +43,7 @@ export type ExampleMapStackOptions = {
 export function toCoordinates(
   lat: number,
   lng: number,
-  level?: number | null
+  level?: Level_t
 ): Coordinates {
   return new Coordinates(lat, lng, null, level ?? null);
 }
@@ -134,7 +134,7 @@ export class ExampleMapStack {
     this.hasFitRouteBounds = false;
   }
 
-  setDestination(lat: number, lng: number, level: number | null = null): void {
+  setDestination(lat: number, lng: number, level: Level_t = null): void {
     this.markers.add({
       id: MARKER_DESTINATION,
       position: toCoordinates(lat, lng, level),
@@ -142,7 +142,7 @@ export class ExampleMapStack {
     });
   }
 
-  setOrigin(lat: number, lng: number, level?: number | null): void {
+  setOrigin(lat: number, lng: number, level?: Level_t): void {
     this.markers.add({
       id: MARKER_ORIGIN,
       position: toCoordinates(lat, lng, level),
@@ -150,7 +150,7 @@ export class ExampleMapStack {
     });
   }
 
-  setTestPosition(lat: number, lng: number, level?: number | null): void {
+  setTestPosition(lat: number, lng: number, level?: Level_t): void {
     this.markers.add({
       id: MARKER_TEST,
       position: toCoordinates(lat, lng, level),
