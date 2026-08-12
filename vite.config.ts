@@ -69,6 +69,11 @@ export default defineConfig({
   ...(isMonorepo && {
     resolve: {
       alias: {
+        // Must precede the '@wemap/map' entry: aliases match as path prefixes,
+        // so the bare '@wemap/map' → index.ts alias would otherwise rewrite the
+        // stylesheet subpath to `index.ts/style.css`. Resolve it to the package
+        // source (mirroring how the JS entry is aliased to source, not dist).
+        '@wemap/map/style.css': resolve(__dirname, '../../packages/map/src/styles.css'),
         '@wemap/core': resolve(__dirname, '../../packages/core/index.ts'),
         '@wemap/geo': resolve(__dirname, '../../packages/geo/index.ts'),
         '@wemap/map': resolve(__dirname, '../../packages/map/index.ts'),

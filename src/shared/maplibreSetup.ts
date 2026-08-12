@@ -16,5 +16,12 @@
 import * as maplibregl from 'maplibre-gl';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
+// `@wemap/map` ships its styles as a separate stylesheet (the library build
+// extracts CSS rather than injecting it), so consumers must import it once.
+// Doing it here means every page that mounts a map gets the marker, cluster and
+// user-location styling. Without this the styles only appear in dev (where the
+// aliased source `index.ts` side-effect-imports them) and vanish from the
+// production bundle once tree-shaking drops that import.
+import '@wemap/map/style.css';
 
 maplibregl.setWorkerUrl(maplibreWorkerUrl);
