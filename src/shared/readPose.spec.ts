@@ -2,10 +2,9 @@ import { describe, it, expect } from 'vitest';
 import type { Pose } from '@wemap/positioning';
 import { readPose } from './readPose';
 
-// The positioning Pose exposes `position` as a union (UserPosition | AbsolutePosition)
-// and `attitude` as a union too. Callers previously narrowed these inline with
-// `'latitude' in position` checks scattered across every example. readPose owns
-// that narrowing once and returns a flat, already-safe readout.
+// The positioning Pose exposes `position` as a UserPosition and `attitude` as an
+// Attitude, both optional. readPose flattens them into a plain, already-safe
+// readout so example pages don't each re-check field presence inline.
 const pose = (value: unknown): Pose => value as Pose;
 
 describe('readPose', () => {

@@ -1,11 +1,10 @@
 /**
  * Normalizes a positioning {@link Pose} into a flat, already-narrowed readout.
  *
- * The SDK's `Pose` carries `position` and `attitude` as unions
- * (`UserPosition | AbsolutePosition`, `Attitude | AbsoluteAttitude`), so reading
- * a field means checking it exists and is a number first. The example pages used
- * to repeat that `'latitude' in position` narrowing at every call site; readPose
- * owns it once so readouts and the map wiring share one safe shape.
+ * The SDK's `Pose` carries `position` as a {@link UserPosition} and `attitude`
+ * as an {@link Attitude}, both optional (absent before the first fix). This
+ * helper flattens them into a plain readout — reading each field defensively
+ * (exists and numeric) — so readouts and the map wiring share one safe shape.
  */
 import type { Pose } from '@wemap/positioning';
 
