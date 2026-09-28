@@ -706,3 +706,814 @@ pre {
   }
 }
 
+
+/* ============================================
+   VPS Navigation sample app (combined.html)
+
+   Built to `debug-design.pen`: one full-height screen, map on top, guidance
+   sheet at the bottom, camera surface floating over the map. Tokens below are
+   the design's variables.
+
+   `[data-location-state]` on the map container restyles the SDK's own user
+   marker per location state — the SDK's rules use `:where()` (zero
+   specificity), so these win without any `!important`.
+   ============================================ */
+
+.nav-page {
+  --surface: #ffffff;
+  --ink: #1a202c;
+  --muted: #888888;
+  --border: #eef0f2;
+  --subtle: #f1f4f7;
+  --field: #f7f9fa;
+  --accent: #4a9fd8;
+  --accent-tint: #4a9fd81f;
+  --amber: #e0a33e;
+  --amber-tint: #e0a33e14;
+  --amber-ink: #8a7440;
+  --grey-state: #9aa3ab;
+  --night: #0e1216;
+  --map-bg: #edf1f4;
+
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+  font-family: Geist, system-ui, -apple-system, sans-serif;
+  background: var(--night);
+}
+
+.nav-page .site-header {
+  flex: 0 0 auto;
+}
+
+.nav-app {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+}
+
+.nav-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Scoped to the stage so it outranks maplibre's own `.maplibregl-map`
+   position rule, which the map injects after this stylesheet. */
+.nav-stage .nav-map {
+  position: absolute;
+  inset: 0;
+  background: var(--map-bg);
+}
+
+.nav-icon {
+  flex: 0 0 auto;
+}
+
+/* --- Map overlays --------------------------------------------------------- */
+
+.nav-pill {
+  position: absolute;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  top: 14px;
+  left: 14px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 14px;
+  min-height: 40px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 10px rgba(14, 18, 22, 0.12);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.nav-pill[hidden] {
+  display: none;
+}
+
+/* Without a rescan button the pill is padded evenly, as in the design. */
+.nav-pill:has(.nav-pill__action[hidden]) {
+  padding: 10px 14px;
+}
+
+.nav-pill__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.nav-pill[data-tone='degraded'] .nav-pill__dot { background: var(--amber); }
+.nav-pill[data-tone='no_positioning'] .nav-pill__dot { background: var(--grey-state); }
+
+.nav-pill__action {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.nav-pill[data-tone='degraded'] .nav-pill__action {
+  background: var(--amber);
+}
+
+.nav-pill__action[hidden] {
+  display: none;
+}
+
+.nav-locate {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 30;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--muted);
+  box-shadow: 0 2px 10px rgba(14, 18, 22, 0.12);
+  cursor: pointer;
+}
+
+.nav-locate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Destination marker (DomMarkerLayer element). */
+.nav-destination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 6px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(14, 18, 22, 0.25);
+}
+
+/* Floor switcher: LevelControl sets the active button's colours inline, so the
+   design's accent needs `!important` to land. */
+.nav-stage .wemap-level-control {
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(14, 18, 22, 0.12);
+}
+
+.nav-stage .wemap-level-control__btn {
+  height: 44px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.nav-stage .wemap-level-control__btn.is-active {
+  background-color: var(--accent) !important;
+  color: #ffffff !important;
+}
+
+/* --- Location state: user marker ----------------------------------------- */
+
+/* The accurate state keeps the SDK's own themed blue dot untouched — only a
+   fix we no longer trust is restyled. */
+.nav-map[data-location-state='degraded'] .wemap-user-location__dot {
+  background-color: var(--amber);
+  color: var(--amber);
+}
+
+.nav-map[data-location-state='degraded'] .wemap-user-location__cone {
+  border-top-color: var(--amber);
+  opacity: 0.35;
+}
+
+/* Drifted or lost: a breathing halo says "somewhere around here". */
+.nav-map[data-location-state='degraded'] .wemap-user-location__dot::after,
+.nav-map[data-location-state='no_positioning'] .wemap-user-location__dot::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 80px;
+  height: 80px;
+  margin: -40px 0 0 -40px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.18;
+  z-index: -1;
+  animation: nav-halo 2.4s ease-out infinite;
+}
+
+.nav-map[data-location-state='no_positioning'] .wemap-user-location__dot {
+  background-color: var(--grey-state);
+  color: var(--grey-state);
+}
+
+.nav-map[data-location-state='no_positioning'] .wemap-user-location__cone {
+  display: none !important;
+}
+
+@keyframes nav-halo {
+  0% { transform: scale(0.72); opacity: 0.26; }
+  70% { transform: scale(1.1); opacity: 0.06; }
+  100% { transform: scale(1.1); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-map .wemap-user-location__dot::after {
+    animation: none;
+  }
+}
+
+/* --- Camera surface ------------------------------------------------------- */
+
+.scan-view {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: #000000;
+  overflow: hidden;
+}
+
+/* Hidden, not stopped: the camera keeps feeding the background scan. */
+.scan-view--hidden {
+  display: none;
+}
+
+.scan-view__video {
+  position: absolute;
+  inset: 0;
+}
+
+.scan-view__video video {
+  display: block;
+}
+
+.scan-view__frame {
+  position: absolute;
+  inset: 20% 11%;
+  border: 2px solid rgba(255, 255, 255, 0.72);
+  border-radius: 24px;
+}
+
+.scan-view__hint {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 28px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: rgba(14, 18, 22, 0.8);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.scan-view__cancel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: rgba(14, 18, 22, 0.65);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+/* The only sign of a background scan: the camera itself stays hidden. Sits
+   under the status pill, away from maplibre's attribution bar. */
+.scan-label {
+  position: absolute;
+  top: 62px;
+  left: 14px;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(14, 18, 22, 0.8);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(14, 18, 22, 0.25);
+}
+
+.scan-label[hidden] {
+  display: none;
+}
+
+.scan-label__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: nav-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes nav-blink {
+  50% { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-label__dot { animation: none; }
+}
+
+/* --- Guidance sheet ------------------------------------------------------- */
+
+.nav-sheet {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: var(--surface);
+  border-radius: 24px 24px 0 0;
+  padding: 14px 20px calc(34px + env(safe-area-inset-bottom));
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+  max-height: 60dvh;
+  overflow-y: auto;
+}
+
+.nav-sheet__body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.nav-sheet__handle-row {
+  display: flex;
+  justify-content: center;
+}
+
+.nav-sheet__handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: #d8dee4;
+}
+
+.nav-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.nav-stack--tight {
+  gap: 4px;
+}
+
+.nav-stack--field {
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.nav-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.nav-row--lead {
+  align-items: flex-start;
+}
+
+.nav-row--actions {
+  gap: 10px;
+}
+
+.nav-row--footer,
+.nav-row--header {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nav-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.nav-title--lg { font-size: 26px; }
+.nav-title--md { font-size: 22px; }
+.nav-title--step { font-size: 21px; }
+.nav-title--sm { font-size: 19px; }
+
+.nav-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.nav-body--tight {
+  line-height: 1.35;
+}
+
+.nav-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.nav-error {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: var(--amber-tint);
+  color: var(--amber-ink);
+  font-size: 13px;
+}
+
+.nav-error[hidden] {
+  display: none;
+}
+
+.nav-chip {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: var(--subtle);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.nav-hint {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--subtle);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.nav-avatar {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.nav-avatar--lg {
+  width: 56px;
+  height: 56px;
+}
+
+.nav-avatar--round {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+}
+
+.nav-pulse {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--accent-tint);
+}
+
+.nav-pulse__dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: nav-blink 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-pulse__dot { animation: none; }
+}
+
+/* --- Notices -------------------------------------------------------------- */
+
+.nav-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+}
+
+.nav-notice--compact {
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: 12px;
+}
+
+.nav-notice--amber {
+  background: var(--amber-tint);
+  color: var(--amber);
+}
+
+.nav-notice--grey {
+  background: var(--subtle);
+  color: var(--grey-state);
+}
+
+.nav-notice__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.nav-notice__body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.nav-notice--amber .nav-notice__body { color: var(--amber-ink); }
+.nav-notice--grey .nav-notice__body { color: var(--muted); }
+
+/* --- Fields --------------------------------------------------------------- */
+
+.nav-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--field);
+}
+
+.nav-field__label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.nav-field__hint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.nav-field__caption {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.nav-select {
+  flex: 0 0 auto;
+  height: 44px;
+  min-width: 104px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 11px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 32px;
+}
+
+.nav-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--field);
+  color: var(--muted);
+}
+
+.nav-input input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--ink);
+  outline: none;
+}
+
+/* --- Buttons -------------------------------------------------------------- */
+
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 54px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nav-btn--primary {
+  flex: 1 1 auto;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.nav-btn--quiet {
+  background: var(--subtle);
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.nav-btn--block {
+  width: 100%;
+}
+
+.nav-btn--sm {
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.nav-btn--square {
+  flex: 0 0 auto;
+  width: 54px;
+  padding: 0;
+  background: var(--subtle);
+  color: var(--muted);
+}
+
+.nav-btn--round {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--subtle);
+  color: var(--muted);
+}
+
+.nav-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --- Progress & metrics --------------------------------------------------- */
+
+.nav-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.nav-progress span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.nav-metric {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.nav-metric__label {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* --- Settings modal ------------------------------------------------------- */
+
+.nav-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.nav-modal[hidden] {
+  display: none;
+}
+
+.nav-modal__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(14, 18, 22, 0.45);
+}
+
+.nav-sheet--modal {
+  position: relative;
+  max-height: 88dvh;
+}
+
+.nav-switch {
+  flex: 0 0 auto;
+  appearance: none;
+  width: 52px;
+  height: 32px;
+  border-radius: 999px;
+  background: #d8dee4;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.nav-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.2s ease;
+}
+
+.nav-switch:checked {
+  background: var(--accent);
+}
+
+.nav-switch:checked::after {
+  transform: translateX(20px);
+}
+
+.nav-field--toggle {
+  gap: 14px;
+  padding: 12px 14px;
+}
+
+@media (min-width: 768px) {
+  .nav-sheet {
+    max-width: 480px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}

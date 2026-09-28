@@ -96,15 +96,31 @@ Example demonstrating routing and navigation features including:
 
 ### 🔄 Combined Features
 
-#### Combined Features (VPS) — primary `@wemap/map` integration demo
+#### VPS Navigation — primary `@wemap/map` integration demo
 **File**: `combined.html`
 
-Test VPS location source, routing, and navigation with `WemapMap`, `UserLocationLayer`, `DomMarkerLayer`, and `ItineraryLayer` via the shared `ExampleMapStack` helper. This comprehensive example includes:
-- VPS location tracking
-- Route calculation
-- Map matching integration
-- Real-time navigation
-- Interactive map interface
+A complete, phone-shaped navigation app rather than a control panel: scan to
+locate yourself, pick a destination on the map, then walk the route. It shows:
+- `VPSLocationSource` with its **background scan** left on, so the fix is
+  refreshed while you walk (the camera keeps running but stays hidden between
+  scans, with a small label while one is in flight — VPS reads frames from a
+  *started* `Camera`, so it must not be stopped; hiding it is fine)
+- `onLocationStateChange` driving every confidence signal: the status pill, the
+  rescan call to action, and the user marker itself — colour + halo per state
+  (`accurate` / `degraded` / `no_positioning`, see `[data-location-state]` in
+  `styles.css`)
+- `Router` + `ItineraryLayer` for the route, `MapMatching` to snap poses onto it,
+  and `ItineraryInfoManager` for turn-by-turn guidance
+- `@wemap/map` for the map: POI clicks pick a destination, `LevelControl`
+  switches floors, level sync follows the pose
+
+The UI follows `debug-design.pen` next to this README (open it with pen.dev):
+thirteen screens covering every state the app can be in. `vps-navigation-app-prompt.md`
+is the same flow written as a spec, for rebuilding it elsewhere.
+
+Off site, point the camera at the [360 viewer](https://livemap.getwemap.com/dom?emmid=31668&kiosk_viewer=demo-map#/kiosk-viewer/948/34.03)
+to get a scan to succeed. Credentials and strict map matching live behind
+**Settings**.
 
 **Use Case**: Complete indoor navigation solution
 

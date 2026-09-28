@@ -120,9 +120,10 @@ export class ExampleMapStack {
     }
   }
 
-  setRoute(itinerary: Itinerary): void {
+  /** `style` overrides the line colour/width (the VPS sample greys a lost fix). */
+  setRoute(itinerary: Itinerary, style?: { color?: string; width?: number }): void {
     const fitBounds = !this.hasFitRouteBounds;
-    this.route.set(itinerary, fitBounds ? { fitBounds: true } : undefined);
+    this.route.set(itinerary, { ...style, ...(fitBounds && { fitBounds: true }) });
 
     if (fitBounds) {
       this.hasFitRouteBounds = true;

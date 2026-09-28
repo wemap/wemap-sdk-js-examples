@@ -1,571 +1,596 @@
 /**
- * Combined features page: VPSLocationSource + Router + Map Matching
- * 
- * Features:
- * - Start VPSLocationSource (automatically starts scan)
- * - Click on map to choose destination
- * - Start itinerary (calls router)
- * - Shows itinerary on map + sets for map matching
+ * VPS navigation sample app — the SDK's indoor navigation loop end to end.
+ *
+ * It is written as a small product rather than a control panel: one screen, one
+ * flow (scan → pick a destination → walk it), built to the `debug-design.pen`
+ * screens that live next to this file.
+ *
+ * What it shows:
+ * - `VPSLocationSource` for camera-based positioning, with its **background
+ *   scan** left enabled so the fix is refreshed without asking the user
+ *   (`onBackgroundScanStatusChange` drives the camera thumbnail badge);
+ * - `onLocationStateChange` driving the whole UI's confidence signals — the
+ *   status pill over the map, the rescan call to action, the drift banner, and
+ *   the user marker itself, which changes colour and grows a halo as the fix
+ *   degrades (see `styles.css`, `[data-location-state]`);
+ * - `Router` + `ItineraryLayer` for the route, `MapMatching` to snap the pose
+ *   onto it, and `ItineraryInfoManager` for turn-by-turn guidance;
+ * - `@wemap/map` for the map itself: POI clicks pick a destination,
+ *   `LevelControl` switches floors, and level sync follows the pose.
  */
 import { CoreConfig } from '@wemap/core';
-import { 
-  VPSLocationSource,
+import {
   MapMatching,
+  VPSLocationSource,
   requestSensorPermissions,
-  type Pose 
+  type BackgroundScanStatus,
+  type LocationState,
+  type Pose,
 } from '@wemap/positioning';
-import { Camera } from '@wemap/camera';
-import { 
-  Router,
+import { LevelControl } from '@wemap/map';
+import { MapMatchingHandler } from '@wemap/providers';
+import {
   Coordinates,
   ItineraryInfoManager,
-  type Itinerary as ItineraryType
+  Router,
+  type Itinerary,
+  type Step,
 } from '@wemap/routing';
-import { ExampleMapStack, type DestinationCoords } from './shared/ExampleMapStack';
-import { createInitialParamsForm, type InitialParamsConfig } from './combined/initialParamsForm';
-import { updateNavigationInfo } from './combined/navigationSection';
-import { MapMatchingHandler } from '@wemap/providers';
+import { ExampleMapStack } from './shared/ExampleMapStack';
+import { readPose } from './shared/readPose';
+import {
+  describeLocationState,
+  stepDistances,
+  stepInstruction,
+} from './combined/navigationFormat';
+import { icon } from './combined/icons';
+import {
+  NavigationSheet,
+  type DestinationView,
+  type LevelOption,
+  type NavigationView,
+} from './combined/navigationSheet';
+import { StatusPill } from './combined/statusPill';
+import { SettingsSheet, type SettingsValues } from './combined/settingsSheet';
+import { ScanView } from './combined/scanView';
 
-// Get DOM elements
-const mapContainer = document.getElementById('map-container') as HTMLDivElement;
-const currentLatEl = document.getElementById('current-lat') as HTMLSpanElement;
-const currentLonEl = document.getElementById('current-lon') as HTMLSpanElement;
-const currentLevelEl = document.getElementById('current-level') as HTMLSpanElement;
-const locationStateEl = document.getElementById('location-state') as HTMLSpanElement;
-const startVpsBtn = document.getElementById('start-vps') as HTMLButtonElement;
-const startItineraryBtn = document.getElementById('start-itinerary') as HTMLButtonElement;
-const updateLevelBtn = document.getElementById('update-destination-level') as HTMLButtonElement;
-const destinationLevelInput = document.getElementById('destination-level') as HTMLInputElement;
-const errorMessageEl = document.getElementById('error-message') as HTMLDivElement;
-const routeErrorMessageEl = document.getElementById('route-error-message') as HTMLDivElement;
-const destinationInfoEl = document.getElementById('destination-info') as HTMLDivElement;
-const itineraryInfoEl = document.getElementById('itinerary-info') as HTMLDivElement;
-const navigationInfoEl = document.getElementById('navigation-info') as HTMLDivElement;
-const backgroundScanStatusEl = document.getElementById('background-scan-status') as HTMLSpanElement | null;
+/**
+ * Arrival threshold, in metres of route still to walk — `ItineraryInfoManager`'s
+ * `remainingDistance`, measured along the itinerary (plus the user's offset
+ * from it), not a straight line to the destination. A destination one aisle
+ * away is metres apart as the crow flies and a long way round on foot.
+ */
+const ARRIVAL_REMAINING_M = 4;
 
-const initialParamsDefaults: InitialParamsConfig = {
-  core: {
-    emmid: '31668',
-    token: 'WEMAP_TOKEN',
-  },
-  routing: {
-    initialDestinationLevel: null,
-  },
-  locationSource: {
-    useStrict: true,
-  },
+const ROUTE_STYLE = { color: '#4A9FD8', width: 8 } as const;
+const ROUTE_STYLE_LOST = { color: '#9AA3AB', width: 8 } as const;
+
+const DEFAULTS: SettingsValues = {
+  emmid: '30763',
+  token: 'WEMAP_TOKEN',
+  useStrict: true,
 };
 
-let initialParams: InitialParamsConfig = initialParamsDefaults;
+// --- Shell ------------------------------------------------------------------
 
-// Initialize core
+const app = document.querySelector<HTMLDivElement>('#app')!;
+app.innerHTML = `
+  <div class="nav-stage">
+    <div id="map" class="nav-map"></div>
+    <button type="button" id="btn-locate" class="nav-locate" title="Center on me" aria-label="Center on me">
+      ${icon('crosshair', 20)}
+    </button>
+  </div>
+`;
+
+const stage = app.querySelector<HTMLElement>('.nav-stage')!;
+const mapEl = app.querySelector<HTMLElement>('#map')!;
+const locateBtn = app.querySelector<HTMLButtonElement>('#btn-locate')!;
+
+// --- State ------------------------------------------------------------------
+
+let settingsValues: SettingsValues = DEFAULTS;
+let pose: Pose = {};
+let running = false;
+let scanning = false;
+let scanError: { title: string; body: string } | null = null;
+let locationState: LocationState = 'no_positioning';
+/** The sheet's view of the destination, plus where it came from. */
+type Destination = DestinationView & {
+  position: Coordinates;
+  /** Pinpoint id when the destination is a POI, `null` for a dropped pin. */
+  poiId: number | null;
+};
+
+let destination: Destination | null = null;
+let itinerary: Itinerary | null = null;
+/** Along-route distance at each manoeuvre, rebuilt with every itinerary. */
+let stepDistanceTable: Map<Step, number> = new Map();
+let calculatingRoute = false;
+let scanCancelled = false;
+let error: string | null = null;
+
 const core = new CoreConfig();
+const router = new Router();
+let itineraryInfo = new ItineraryInfoManager();
 
-// Mount the reusable initial params form (so `combined.html` doesn't need changes).
-const mainContainerEl = document.querySelector<HTMLDivElement>('.main-container');
-if (mainContainerEl) {
-  const paramsContainer = document.createElement('div');
-  paramsContainer.id = 'initial-params-container';
-
-  const firstSection = mainContainerEl.querySelector<HTMLElement>('.section');
-  if (firstSection) {
-    mainContainerEl.insertBefore(paramsContainer, firstSection);
-  } else {
-    mainContainerEl.appendChild(paramsContainer);
-  }
-
-  createInitialParamsForm({
-    container: paramsContainer,
-    defaults: initialParamsDefaults,
-    onApply: (config) => {
-      const emmidChanged = config.core.emmid !== initialParams.core.emmid;
-      initialParams = config;
-
-      MapMatchingHandler.useStrict = config.locationSource.useStrict;
-
-      void (async () => {
-        try {
-          await core.init(config.core);
-          console.log('[Core] Re-initialized with updated form params.');
-
-          if (emmidChanged) {
-            resetMapStackAndState();
-          }
-        } catch (error) {
-          console.warn('[Core] Re-initialization failed, continuing with previous state:', error);
-        }
-      })();
-
-      destinationLevelInput.value =
-        config.routing.initialDestinationLevel === null ? '' : String(config.routing.initialDestinationLevel);
-      if (destinationCoords) {
-        destinationCoords.level = config.routing.initialDestinationLevel;
-        mapStack.setDestination(destinationCoords.lat, destinationCoords.lon, destinationCoords.level);
-        updateDestinationInfo();
-        updateButtonStates();
-      }
-    },
-  });
-}
-
+// `core.init()` first: both the map style and the VPS endpoint come from the
+// livemap configuration, so nothing below can be built before it resolves.
 try {
-  await core.init(initialParams.core);
-} catch (error) {
-  console.warn('Core initialization failed, continuing without it:', error);
+  await core.init({ emmid: DEFAULTS.emmid, token: DEFAULTS.token });
+} catch (initError) {
+  console.warn('[core] initialization failed:', initError);
+  error = 'Could not load the livemap — check the credentials in Settings.';
 }
 
-// Create VPSLocationSource instance
-const vpsLocationSource = new VPSLocationSource({
-  usePositionSmoother: true,
-  useStrict: initialParams.locationSource.useStrict,
+/**
+ * Build a location source and wire it to the UI.
+ *
+ * It is a function because the VPS endpoint is read from the livemap
+ * configuration **when the source is constructed** — changing the venue in
+ * Settings means building a new source, not reusing this one.
+ *
+ * Background scan stays on: it is the feature that keeps the fix fresh while
+ * the user walks, without any interaction.
+ */
+function createVpsSource(): VPSLocationSource {
+  const source = new VPSLocationSource({
+    usePositionSmoother: true,
+    useStrict: settingsValues.useStrict,
+  });
+
+  source.onUpdate((next) => {
+    pose = next;
+    mapStack.updatePose(next);
+    requestRender();
+  });
+
+  source.onError((sourceError) => {
+    console.error('[VPSLocationSource]', sourceError);
+    error = sourceError.message;
+    render();
+  });
+
+  source.onLocationStateChange((state) => {
+    locationState = state;
+
+    // A lost fix makes the drawn route a guess too — grey it to match the marker.
+    if (itinerary) {
+      mapStack.setRoute(itinerary, state === 'no_positioning' ? ROUTE_STYLE_LOST : ROUTE_STYLE);
+    }
+
+    render();
+  });
+
+  // A background scan runs with the camera hidden — the label is the only sign.
+  source.onBackgroundScanStatusChange((status: BackgroundScanStatus) => {
+    scanView.setScanLabel(status === 'scanning' ? 'Refreshing position…' : null);
+  });
+
+  return source;
+}
+
+// --- UI ---------------------------------------------------------------------
+
+const sheet = new NavigationSheet(app, {
+  onScan: () => void startScan(),
+  onCancelScan: () => void cancelScan(),
+  onGo: () => void computeRoute(),
+  onClearDestination: clearDestination,
+  onEnd: clearDestination,
+  onDestinationLevelChange: (level) => {
+    if (!destination) {
+      return;
+    }
+    destination.level = level;
+    destination.position = withLevel(destination.position, level);
+    drawDestination();
+    render();
+  },
+  onOpenSettings: () => settings.open(settingsValues),
 });
 
-// Create Router instance
-const router = new Router();
+const pill = new StatusPill(stage, () => void startScan());
 
-// Create ItineraryInfoManager instance
-let itineraryInfoManager = new ItineraryInfoManager();
-
-// State for VPSLocationSource
-let vpsPose: Pose = {};
-let vpsRunning = false;
-let vpsError: string | null = null;
-
-// Camera state (for VPS)
-let camera: Camera | null = null;
-let cameraContainer: HTMLElement | null = null;
-
-// State for Router and Map Matching
-let currentItinerary: ItineraryType | null = null;
-let destinationCoords: { lat: number; lon: number; level: number | null } | null = null;
-let isCalculatingRoute = false;
-let routeError: string | null = null;
-
-// VPS status state (kept in sync via listeners)
-let scanStatus: string = 'stopped';
-let backgroundScanStatus: string = 'disabled';
-
-function createMapStack(): ExampleMapStack {
-  return new ExampleMapStack({
-    container: mapContainer,
-    followOnFirstFix: true,
-    getDestinationClickGuard: () => {
-      if (!vpsRunning) return { ok: false, reason: 'Please start VPSLocationSource first' };
-      if (!vpsPose.position || !('latitude' in vpsPose.position)) {
-        return { ok: false, reason: 'Waiting for VPS position. Please wait for the scan to complete.' };
-      }
-      return { ok: true };
-    },
-    getDestinationLevel: () => {
-      if (!destinationLevelInput.value) return null;
-      const parsed = parseInt(destinationLevelInput.value, 10);
-      return Number.isFinite(parsed) ? parsed : null;
-    },
-    onDestinationClick: (destination: DestinationCoords) => {
-      destinationCoords = { lat: destination.lat, lon: destination.lng, level: destination.level };
-      updateDestinationInfo();
-      updateButtonStates();
-    },
-  });
+function createScanView(): ScanView {
+  return new ScanView({ container: stage, onCancel: () => void cancelScan() });
 }
 
-function resetMapStackAndState(): void {
-  mapStack.destroy();
-  currentItinerary = null;
-  MapMatching.clearItinerary();
-  itineraryInfoManager = new ItineraryInfoManager();
-  destinationCoords = null;
-  routeError = null;
-  mapStack = createMapStack();
-  updateDestinationInfo();
-  updateItineraryInfo();
-  updateNavigationInfo({
-    navigationInfoEl,
-    vpsPose,
-    currentItinerary,
-    itineraryInfoManager,
+let scanView = createScanView();
+
+const settings = new SettingsSheet(app, (values) => void applySettings(values));
+
+// --- Map --------------------------------------------------------------------
+
+function createMapStack(): ExampleMapStack {
+  const created = new ExampleMapStack({ container: mapEl, followOnFirstFix: true });
+
+  void created.wemapMap.whenReady().then(() => {
+    created.wemapMap.addControl(new LevelControl(created.wemapMap));
   });
-  updateButtonStates();
-  updateErrorDisplay();
+
+  created.wemapMap.onLevelChange(() => render());
+
+  // A pinpoint click names the destination; a click on bare map drops one.
+  created.wemapMap.onPoiClick(({ pinpoint, coordinates }) => {
+    setDestination(new Coordinates(coordinates.lat, coordinates.lng, null, pinpoint.level ?? null), {
+      name: pinpoint.name,
+      detail: pinpoint.address ?? 'Point of interest',
+      // The pinpoint knows which floor it is on — nothing to override.
+      levelEditable: false,
+      poiId: pinpoint.id,
+    });
+  });
+
+  created.wemapMap.on('click', (event) => {
+    const hitPinpoint = created.wemapMap.maplibre
+      .queryRenderedFeatures(event.point)
+      .some((feature) => 'pinpoint' in (feature.properties ?? {}));
+
+    if (hitPinpoint) {
+      return;
+    }
+
+    const level = created.wemapMap.getLevel();
+    setDestination(new Coordinates(event.lngLat.lat, event.lngLat.lng, null, level), {
+      name: 'Dropped pin',
+      detail: `${event.lngLat.lat.toFixed(5)}, ${event.lngLat.lng.toFixed(5)}`,
+      levelEditable: true,
+      poiId: null,
+    });
+  });
+
+  return created;
 }
 
 let mapStack = createMapStack();
 
-// Set up VPSLocationSource listeners
-vpsLocationSource.onUpdate((pose: Pose) => {
-  vpsPose = pose;
-  updatePositionDisplay();
-  updateMapUserPosition();
-  updateButtonStates();
-  updateVpsStatusDisplay();
-  updateNavigationInfo({
-    navigationInfoEl,
-    vpsPose: pose,
-    currentItinerary,
-    itineraryInfoManager,
-  });
-});
-
-vpsLocationSource.onError((error: Error) => {
-  vpsError = error.message;
-  updateErrorDisplay();
-  updateVpsStatusDisplay();
-  console.error('[VPSLocationSource] Error:', error);
-});
-
-// Listen to scan status changes to update UI (using VPSLocationSource listeners directly)
-vpsLocationSource.onScanStatusChange((status: string) => {
-  scanStatus = status;
-  updateVpsStatusDisplay();
-});
-
-vpsLocationSource.onBackgroundScanStatusChange((status: string) => {
-  backgroundScanStatus = status;
-  updateVpsStatusDisplay();
-});
-
-vpsLocationSource.onLocationStateChange((state) => {
-  if (locationStateEl) {
-    locationStateEl.textContent = state;
+locateBtn.addEventListener('click', () => {
+  const position = currentPosition();
+  if (position) {
+    mapStack.wemapMap.flyTo({ center: position, zoom: 19, duration: 800 });
   }
 });
 
-// Map click, markers, and route rendering are handled by ExampleMapStack.
+/** Floors of the active building, newest design's select options. */
+function levelOptions(): LevelOption[] {
+  const building = mapStack.wemapMap.getCurrentBuilding();
 
-// Calculate route from current position to destination
-async function calculateRoute(): Promise<void> {
-  if (!vpsPose.position || !('latitude' in vpsPose.position)) {
-    alert('No VPS position available. Please start VPSLocationSource first.');
+  if (!building) {
+    return [];
+  }
+
+  return [...building.levels]
+    .sort((a, b) => b.level - a.level)
+    .map((level) => ({ value: level.level, label: `Level ${level.short_name || level.level}` }));
+}
+
+/**
+ * Show the destination on the map.
+ *
+ * A pinpoint is already drawn by the map style, so it is marked *selected*
+ * (`setPoiSelected`) rather than covered with a marker of our own; anywhere
+ * else gets a plain dropped pin.
+ */
+function drawDestination(): void {
+  if (!destination) {
     return;
   }
 
-  if (!destinationCoords) {
-    alert('Please click on the map to set a destination first.');
+  if (destination.poiId !== null) {
+    mapStack.clearMarkers();
+    mapStack.wemapMap.setPoiSelected([destination.poiId]);
     return;
   }
 
-  isCalculatingRoute = true;
-  routeError = null;
-  updateButtonStates();
-  updateErrorDisplay();
+  mapStack.wemapMap.setPoiSelected([]);
+  mapStack.setDestination(destination.position.lat, destination.position.lng, destination.level);
+}
+
+let vps = createVpsSource();
+
+// --- Flow -------------------------------------------------------------------
+
+function currentPosition(): Coordinates | null {
+  const position = readPose(pose).position;
+  return position
+    ? new Coordinates(position.latitude, position.longitude, null, position.level)
+    : null;
+}
+
+function withLevel(position: Coordinates, level: number | null): Coordinates {
+  return new Coordinates(position.lat, position.lng, null, level);
+}
+
+/** A scan failure the sheet can present with the design's two-line notice. */
+class ScanFailure extends Error {
+  readonly title: string;
+
+  constructor(title: string, body: string) {
+    super(body);
+    this.title = title;
+  }
+}
+
+async function startScan(): Promise<void> {
+  error = null;
+  scanError = null;
+  scanning = true;
+  scanCancelled = false;
+  render();
 
   try {
-    const origin = new Coordinates(
-      vpsPose.position.latitude,
-      vpsPose.position.longitude,
-      null,
-      vpsPose.position.level
-    );
-    
-    const destination = new Coordinates(destinationCoords.lat, destinationCoords.lon);
-    
-    // Set level if provided
-    if (destinationCoords.level !== null && destinationCoords.level !== undefined) {
-      destination.level = destinationCoords.level;
+    // iOS gates motion/orientation sensors behind a user gesture — this runs
+    // inside the scan button's click handler.
+    if (!(await requestSensorPermissions())) {
+      throw new ScanFailure(
+        'Sensors unavailable',
+        'Motion and orientation access is required to locate you.'
+      );
     }
 
-    const itineraries = await router.directions(origin, destination, 'WALK');
-    
-    if (itineraries.length === 0) {
-      throw new Error('No route found');
+    await scanView.expand();
+
+    if (!running) {
+      await vps.start();
+      running = true;
     }
 
-    currentItinerary = itineraries[0];
-    
-    // Set itinerary for map matching
-    MapMatching.setItinerary(currentItinerary);
-    
-    // Set itinerary for ItineraryInfoManager
-    itineraryInfoManager.itinerary = currentItinerary;
-    
-    console.log('Route calculated and set for map matching:', currentItinerary);
-    updateItineraryInfo();
-    updateMapRoute();
-    updateNavigationInfo({
-      navigationInfoEl,
-      vpsPose,
-      currentItinerary,
-      itineraryInfoManager,
-    });
-  } catch (error) {
-    routeError = error instanceof Error ? error.message : String(error);
-    console.error('Failed to calculate route:', error);
-    alert(`Failed to calculate route: ${routeError}`);
+    const located = await vps.startScan();
+
+    if (scanCancelled) {
+      return;
+    }
+
+    if (!located) {
+      throw new ScanFailure(
+        'Nothing recognisable in view',
+        'Point at a shop front, a sign or a distinctive facade — blank walls and floors cannot be matched.'
+      );
+    }
+
+    scanView.hide();
+  } catch (caught) {
+    console.error('[scan]', caught);
+    scanError =
+      caught instanceof ScanFailure
+        ? { title: caught.title, body: caught.message }
+        : { title: 'Scan failed', body: caught instanceof Error ? caught.message : String(caught) };
+    await vps.stopScan();
+
+    // Keep the viewfinder up so a retry is one tap away; a user who already
+    // has a fix goes back to the map.
+    if (currentPosition()) {
+      scanView.hide();
+    }
   } finally {
-    isCalculatingRoute = false;
-    updateButtonStates();
-    updateErrorDisplay();
+    scanning = false;
+    render();
   }
 }
 
-function updateMapUserPosition(): void {
-  mapStack.updatePose(vpsPose);
+async function cancelScan(): Promise<void> {
+  scanCancelled = true;
+  scanError = null;
+  await vps.stopScan(true);
+  scanning = false;
+
+  scanView.hide();
+
+  render();
 }
 
-function updateMapRoute(): void {
-  if (currentItinerary) {
-    mapStack.setRoute(currentItinerary);
-  } else {
-    mapStack.clearRoute();
-  }
+function setDestination(
+  position: Coordinates,
+  labels: { name: string; detail: string; levelEditable: boolean; poiId: number | null }
+): void {
+  clearRoute();
+  destination = {
+    ...labels,
+    level: typeof position.level === 'number' ? position.level : null,
+    levelOptions: levelOptions(),
+    position,
+  };
+
+  drawDestination();
+  render();
 }
 
-// Update position display only
-function updatePositionDisplay(): void {
-  const position = vpsPose.position;
-  const hasPosition = position && 'latitude' in position;
-  
-  if (currentLatEl) {
-    currentLatEl.textContent = hasPosition ? position.latitude.toFixed(6) : 'N/A';
-  }
-  if (currentLonEl) {
-    currentLonEl.textContent = hasPosition ? position.longitude.toFixed(6) : 'N/A';
-  }
-  if (currentLevelEl) {
-    currentLevelEl.textContent = hasPosition && 'level' in position && position.level !== null ? String(position.level) : 'N/A';
-  }
+function clearDestination(): void {
+  clearRoute();
+  destination = null;
+  mapStack.clearMarkers();
+  mapStack.wemapMap.setPoiSelected([]);
+  render();
 }
 
-// Update error display
-function updateErrorDisplay(): void {
-  if (errorMessageEl) {
-    if (vpsError) {
-      errorMessageEl.style.display = 'block';
-      errorMessageEl.style.color = '#dc3545';
-      errorMessageEl.style.fontSize = '0.875rem';
-      errorMessageEl.innerHTML = `<strong>⚠️ Error:</strong> ${vpsError}`;
-    } else {
-      errorMessageEl.style.display = 'none';
-    }
-  }
-  
-  if (routeErrorMessageEl) {
-    if (routeError) {
-      routeErrorMessageEl.style.display = 'block';
-      routeErrorMessageEl.style.color = '#dc3545';
-      routeErrorMessageEl.style.fontSize = '0.875rem';
-      routeErrorMessageEl.innerHTML = `<strong>⚠️ Route Error:</strong> ${routeError}`;
-    } else {
-      routeErrorMessageEl.style.display = 'none';
-    }
-  }
+function clearRoute(): void {
+  itinerary = null;
+  stepDistanceTable = new Map();
+  itineraryInfo = new ItineraryInfoManager();
+  MapMatching.clearItinerary();
+  mapStack.clearRoute();
 }
 
-// Update VPS / background scan status display
-function updateVpsStatusDisplay(): void {
-  if (!backgroundScanStatusEl) {
+async function computeRoute(): Promise<void> {
+  const origin = currentPosition();
+
+  if (!origin || !destination) {
     return;
   }
 
-  backgroundScanStatusEl.textContent = `${scanStatus} / ${backgroundScanStatus}`;
-}
+  calculatingRoute = true;
+  error = null;
+  render();
 
-// Update destination info display
-function updateDestinationInfo(): void {
-  if (destinationInfoEl) {
-    if (destinationCoords) {
-      destinationInfoEl.style.display = 'block';
-      const levelText = destinationCoords.level !== null && destinationCoords.level !== undefined ? `, Level: ${destinationCoords.level}` : '';
-      destinationInfoEl.innerHTML = `<strong>✓ Destination set:</strong> ${destinationCoords.lat.toFixed(6)}, ${destinationCoords.lon.toFixed(6)}${levelText}`;
-    } else {
-      destinationInfoEl.style.display = 'none';
-    }
-  }
-}
-
-// Update itinerary info display
-function updateItineraryInfo(): void {
-  if (itineraryInfoEl) {
-    if (currentItinerary) {
-      itineraryInfoEl.style.display = 'block';
-      itineraryInfoEl.innerHTML = '<strong>✓ Itinerary calculated and set for map matching</strong>';
-    } else {
-      itineraryInfoEl.style.display = 'none';
-    }
-  }
-}
-
-// Update button states
-function updateButtonStates(): void {
-
-  if (startItineraryBtn) {
-    startItineraryBtn.disabled = !vpsRunning || !destinationCoords || isCalculatingRoute;
-    startItineraryBtn.textContent = isCalculatingRoute ? 'Calculating...' : 'Start Itinerary';
-  }
-  if (updateLevelBtn) {
-    updateLevelBtn.disabled = !destinationCoords;
-  }
-}
-
-// Handle VPS start (automatically starts scan)
-async function handleStartVPS() {
   try {
-    // Request device orientation permission (iOS)
-    const hasPermission = await requestSensorPermissions();
-    if (!hasPermission) {
-      throw new Error('Permission denied');
-    }
-    
-    // Start VPS source
-    await vpsLocationSource.start();
-    vpsRunning = true;
-    vpsError = null;
-    updateButtonStates();
-    updateErrorDisplay();
-    updateVpsStatusDisplay();
-    
-    // Set up camera
-    if (!camera) {
-      await setupCamera();
-    }
-    
-    // Start scan immediately
-    const scanPromise = vpsLocationSource.startScan();
-    updateButtonStates();
+    const [best] = await router.directions(origin, destination.position, 'WALK');
 
-    console.log('VPSLocationSource started and scan initiated');
-
-    const success = await scanPromise;
-    if (!success) {
-      throw new Error('VPS scan failed');
+    if (!best) {
+      throw new Error('No walking route to that destination.');
     }
 
-    // Stop camera after successful scan
-    if (camera) {
-      await hideCamera();
-    }
-
-    updateButtonStates();
-    updateVpsStatusDisplay();
-  } catch (error) {
-    vpsError = error instanceof Error ? error.message : String(error);
-    updateErrorDisplay();
-    updateButtonStates();
-    updateVpsStatusDisplay();
-    console.error('Failed to start VPSLocationSource:', error);
-    alert(`Failed to start VPSLocationSource: ${vpsError}`);
+    itinerary = best;
+    stepDistanceTable = stepDistances(best);
+    // Snap incoming poses onto the route, and feed the same route to the
+    // guidance manager that turns a position into "turn right in 12 m".
+    MapMatching.setItinerary(best);
+    itineraryInfo.itinerary = best;
+    mapStack.setRoute(best, ROUTE_STYLE);
+  } catch (routeError) {
+    console.error('[router]', routeError);
+    error = routeError instanceof Error ? routeError.message : String(routeError);
+  } finally {
+    calculatingRoute = false;
+    render();
   }
 }
 
-// Handle start itinerary
-async function handleStartItinerary() {
-  await calculateRoute();
-}
+async function applySettings(values: SettingsValues): Promise<void> {
+  const emmidChanged = values.emmid !== settingsValues.emmid;
+  const credentialsChanged = emmidChanged || values.token !== settingsValues.token;
+  settingsValues = values;
+  MapMatchingHandler.useStrict = values.useStrict;
 
-// Handle update destination level
-function handleUpdateDestinationLevel() {
-  if (!destinationCoords) {
-    alert('Please click on the map to set a destination first.');
+  if (!credentialsChanged) {
+    render();
     return;
   }
 
-  const level = destinationLevelInput && destinationLevelInput.value !== '' ? parseInt(destinationLevelInput.value, 10) : null;
-  
-  if (destinationLevelInput && destinationLevelInput.value !== '' && isNaN(level as number)) {
-    alert('Please enter a valid number for the level.');
+  try {
+    await core.init({ emmid: values.emmid, token: values.token });
+  } catch (initError) {
+    console.warn('[core] re-init failed, keeping previous configuration:', initError);
+    error = 'Could not apply those credentials.';
+    render();
     return;
   }
 
-  destinationCoords.level = isNaN(level as number) ? null : level;
-  mapStack.setDestination(destinationCoords.lat, destinationCoords.lon, destinationCoords.level);
-  updateDestinationInfo();
-}
+  // The source resolved its VPS endpoint from the old livemap configuration at
+  // construction, so new credentials need a new source — not just a new map.
+  // Build it before disposing the old one: a missing endpoint throws here, and
+  // a half-torn-down app would leave nothing to scan with.
+  let replacement: VPSLocationSource;
 
-// Set up camera for VPS
-async function setupCamera(): Promise<void> {
   try {
-    await Camera.checkAvailability();
-    
-    cameraContainer = document.getElementById('camera-container');
-    if (!cameraContainer) {
-      cameraContainer = document.createElement('div');
-      cameraContainer.id = 'camera-container';
-      cameraContainer.style.cssText = 'width: 100%; max-width: 640px; margin: 1rem auto; background: #000; border-radius: 8px; overflow: hidden; position: relative; min-height: 360px;';
-      // Insert after the actions section
-      const actionsSection = document.querySelector('.section:nth-of-type(2)');
-      if (actionsSection && actionsSection.nextSibling) {
-        actionsSection.parentNode?.insertBefore(cameraContainer, actionsSection.nextSibling);
-      } else if (actionsSection) {
-        actionsSection.parentNode?.appendChild(cameraContainer);
-      }
-    } else {
-      cameraContainer.innerHTML = '';
-    }
-    
-    camera = new Camera(cameraContainer, {
-      width: 640,
-      height: 480,
-      resizeOnWindowChange: true,
-    });
-    
-    await camera.start();
-    console.log('Camera setup complete');
-  } catch (error) {
-    console.error('Failed to set up camera:', error);
-    throw error;
+    replacement = createVpsSource();
+  } catch (sourceError) {
+    console.error('[VPSLocationSource] could not be rebuilt:', sourceError);
+    error = 'This livemap has no visual positioning configured.';
+    render();
+    return;
   }
+
+  await vps.dispose();
+  vps = replacement;
+
+  // Everything the old venue produced is stale: the fix, the route, the camera.
+  await scanView.destroy();
+  scanView = createScanView();
+  running = false;
+  scanning = false;
+  scanCancelled = true;
+  scanError = null;
+  pose = {};
+  locationState = 'no_positioning';
+  clearRoute();
+
+  if (emmidChanged) {
+    clearDestination();
+    mapStack.destroy();
+    mapStack = createMapStack();
+  }
+
+  render();
 }
 
-// Stop camera
-// async function stopCamera(): Promise<void> {
-//   if (camera) {
-//     try {
-//       await camera.stop();
-//       camera.release();
-//       camera = null;
-//       console.log('Camera stopped and released');
-//     } catch (error) {
-//       console.error('Failed to stop camera:', error);
-//     }
-//   }
-// }
+// --- Rendering --------------------------------------------------------------
 
-async function hideCamera(): Promise<void> {
-  if (cameraContainer) {
-    cameraContainer.style.display = 'none';
+function navigationView(): NavigationView | null {
+  const position = currentPosition();
+
+  if (!itinerary || !destination || !position) {
+    return null;
   }
+
+  const info = itineraryInfo.getInfo(position);
+
+  if (!info) {
+    return null;
+  }
+
+  const lost = locationState === 'no_positioning';
+  const state = describeLocationState(locationState);
+
+  const stepDistance = info.nextStep ? stepDistanceTable.get(info.nextStep) : undefined;
+
+  return {
+    instruction: stepInstruction(info.nextStep),
+    // Metres of route left before the turn, not a straight line to it. A
+    // position we no longer trust cannot honestly carry a "in 12 m" at all.
+    distanceToStep:
+      lost || stepDistance === undefined
+        ? null
+        : Math.max(0, stepDistance - info.traveledDistance),
+    remainingDistance: info.remainingDistance,
+    // `traveledPercentage` is a 0–1 ratio, not a percentage number.
+    progress: info.traveledPercentage,
+    arrived: !lost && info.remainingDistance < ARRIVAL_REMAINING_M,
+    destinationName: destination.name,
+    drift: state.suggestScan
+      ? { tone: lost ? ('lost' as const) : ('degraded' as const), label: state.hint }
+      : null,
+  };
 }
 
-// Initialize
-(async () => {
-  try {
-    // Set up event listeners
-    if (startVpsBtn) {
-      startVpsBtn.onclick = handleStartVPS;
-    }
-    if (startItineraryBtn) {
-      startItineraryBtn.onclick = handleStartItinerary;
-    }
-    if (updateLevelBtn) {
-      updateLevelBtn.onclick = handleUpdateDestinationLevel;
-    }
-    
-    // Initialize position display
-    updatePositionDisplay();
-    updateButtonStates();
-    updateErrorDisplay();
-    updateDestinationInfo();
-    updateItineraryInfo();
-    updateNavigationInfo({
-      navigationInfoEl,
-      vpsPose,
-      currentItinerary,
-      itineraryInfoManager,
-    });
-    
-    console.log('Combined features page initialized.');
-  } catch (error) {
-    console.error('Failed to initialize page:', error);
-    const errorDiv = document.createElement('div');
-    errorDiv.style.cssText = 'padding: 2rem; font-family: system-ui, sans-serif;';
-    errorDiv.innerHTML = `
-      <h1>Combined Features</h1>
-      <div style="margin-top: 2rem; padding: 1rem; background: #f8d7da; border-radius: 8px; border: 1px solid #dc3545;">
-        <h2>Error</h2>
-        <p><strong>Failed to initialize:</strong> ${error instanceof Error ? error.message : String(error)}</p>
-      </div>
-    `;
-    document.body.appendChild(errorDiv);
+let renderScheduled = false;
+
+/**
+ * Coalesce UI updates to one per frame.
+ *
+ * `onUpdate` fires on every device-orientation event — around 60 times a
+ * second — and rendering synchronously on each one leaves no main-thread time
+ * for maplibre's gesture handling, which silently drops map taps.
+ */
+function requestRender(): void {
+  if (renderScheduled) {
+    return;
   }
-})();
+
+  renderScheduled = true;
+  requestAnimationFrame(() => {
+    renderScheduled = false;
+    render();
+  });
+}
+
+function render(): void {
+  // The map container carries the state, so the SDK's own user marker can be
+  // restyled per state from CSS alone (`styles.css`, `[data-location-state]`).
+  mapEl.dataset.locationState = running ? locationState : 'no_positioning';
+
+  const state = describeLocationState(locationState);
+  pill.render(state, running && !scanning, scanning);
+
+  if (destination) {
+    destination.levelOptions = levelOptions();
+  }
+
+  sheet.render({
+    running,
+    located: currentPosition() !== null,
+    scanning,
+    scanError,
+    destination,
+    calculatingRoute,
+    navigation: navigationView(),
+    currentLevel: mapStack.wemapMap.getLevel(),
+    error,
+  });
+
+  locateBtn.disabled = currentPosition() === null;
+}
+
+render();
+
 
