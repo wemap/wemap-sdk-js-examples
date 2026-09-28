@@ -143,6 +143,10 @@ card at a time.
   breaks out the moment the camera is no longer `started`, and a cold start
   costs a second of unusable auto-exposure frames. Hiding the preview
   (`display: none`) is fine; stopping the stream is not.
+- **Nothing scans forever.** A single scan gives up after a couple of minutes,
+  and background scanning stops on its own after ~30 minutes — a page left open
+  on a desk must not keep hitting the VPS server all day. Both restart from a
+  user-initiated scan, which is why the rescan affordance is always reachable.
 - **Errors are inline and actionable**, in the sheet. No alerts, no error codes,
   no stack traces in the UI (log those to the console).
 - **The location state drives three surfaces at once**: the user marker, the
